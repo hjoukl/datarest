@@ -1,4 +1,4 @@
-# Python low code data-driven REST-Tool
+# sw-datarest: Python low code data-driven REST-Tool
 
 
 Python low code data-driven REST-Tool short description
@@ -9,3 +9,7 @@ Python low code data-driven REST-Tool short description
 ## Features
 
 * TODO
+
+## Installation
+## Usage
+* eventuell Screenshot mit Beispiel
