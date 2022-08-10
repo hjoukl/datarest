@@ -8,9 +8,7 @@ import frictionless
 from frictionless.plugins.sql import SqlDialect
 
 from . import _cfgfile
-from . import _datafiles
 from . import _models
-from . import _tableschema
 from . import _yaml_tools
 from ._resource_ids import IdEnum
 from ._data_resource_tools import (
@@ -131,10 +129,10 @@ def cli():
                 resource_with_pk.write(datafile)
 
             cfg = _cfgfile.read_app_config()
-            from . import database
+            from . import _database
             from sqlmodel import SQLModel
             models = _models.create_models(cfg.datarest.datatables)
-            SQLModel.metadata.create_all(database.engine)
+            SQLModel.metadata.create_all(_database.engine)
             
             resource_with_pk.write(
                 cfg.datarest.database.connect_string,
@@ -203,10 +201,10 @@ def cli():
             db_resource.to_yaml(resource_path)
             
             cfg = _cfgfile.read_app_config()
-            from . import database
+            from . import _database
             from sqlmodel import SQLModel
             models = _models.create_models(cfg.datarest.datatables)
-            SQLModel.metadata.create_all(database.engine)
+            SQLModel.metadata.create_all(_database.engine)
             
         except Exception as exc:
             typer.echo(exc)
@@ -231,7 +229,7 @@ def cli():
     app_arg = [
         param for param in uvicorn.main.params
         if isinstance(param, click.Argument) and param.name == 'app'][0]
-    app_arg.default = 'datarest.app:app'
+    app_arg.default = 'datarest._app:app'
 
    
     # hook uvicorn's click to our typer cli here

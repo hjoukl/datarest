@@ -52,18 +52,6 @@ def create_model(model_name, model_def):
             expose_routes=model_def.expose_routes,
             paginate=model_def.paginate)
         
-    if model_def.schema_spec == _cfgfile.SchemaSpecEnum.sqlalchemy:
-        id_column, model = database_sqlalchemy.create_model_from_db(
-            model_cls_name, model_def.dbtable)
-        collection_model = create_model(
-            collection_model_cls_name, **{model_name: (List[model], ...)})
-        return ModelCombo(
-            resource_name=model_name,
-            resource_model=model,
-            resource_collection_model=collection_model,
-            dbtable=model_def.dbtable,
-            id_columns=id_columns)
-
     raise ValueError('Unsupported data schema specification')
 
 

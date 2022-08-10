@@ -1,7 +1,7 @@
 # Use fastapi_crudrouter to generate router endpoints 
 
 from fastapi_crudrouter import SQLAlchemyCRUDRouter as CRUDRouter
-from . import database
+from . import _database
 
 
 # Disallow all routes per default to allow for selectively enabling routes
@@ -33,7 +33,7 @@ def create_routes(app, models):
         router = CRUDRouter(
             schema=model.resource_model,
             db_model=model.resource_model,
-            db=database.get_db,
+            db=_database.get_db,
             prefix=model.resource_name,
             paginate=model.paginate,
             **expose_routes
