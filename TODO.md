@@ -1,4 +1,6 @@
 # TODOs
+- Add tests!
+- Add examples + documentation.
 - Add auth.
 - Add support for table header offsets + sheet select, especially for xlsx
   spreadsheet input data files.
