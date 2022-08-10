@@ -2,24 +2,25 @@
 """
 
 import collections
-import json
-import attrdict
-from pydantic import create_model, Field
 from typing import List 
-from . import tableschema
-from . import database_sqlalchemy
+
+import attrdict
+
+from . import _cfgfile
+from . import _sqlmodel_ext
+from . import _data_resource_models
+from ._cfgfile import Datatables
 
 
-# adding configuration to model
-#factory function for creating tuple subclasses with named fields
+# TODO: Maybe get rid of ModelCombo namedtuple and switch to a full pydantic
+# model here, too?
 ModelCombo = collections.namedtuple(
     'ModelCombo',
     ['resource_name', 'resource_model', 'resource_collection_model', 'dbtable',
-     'id_column'])
+     'id_columns', 'expose_routes', 'paginate'])
 
 
-
-def create_pydantic_model(model_name, model_def):
+def create_model(model_name, model_def):
     """Dynamically create pydantic model from config model definition.
     
     FastAPI uses pydantic models to describe endpoint input/output data.
@@ -27,26 +28,31 @@ def create_pydantic_model(model_name, model_def):
     Parameters:
        model_name: resource name string
        model_def: model definition from config file (AttrDict)
+    
     Returns: A ModelCombo object
     """
-    # Create resource + collection model class names using standard Python conventions
-    model_name_title = model_name.title()
-    model_cls_name = '{}Model'.format(model_name_title)    
-    collection_model_cls_name = '{}CollectionModel'.format(model_name_title)
+    # Create resource + collection model class names using standard Python 
+    # naming conventions
+    model_cls_name = model_name.title()
+    collection_model_cls_name = f'{model_cls_name}CollectionModel'
     
-    if model_def.profile == 'table-schema':
-        id_column, model = tableschema.create_model_from_tableschema(
-            model_cls_name, model_def.schema)
-        collection_model = create_model(
+    if model_def.schema_spec == _cfgfile.SchemaSpecEnum.data_resource:
+        # TODO: Unify model creation code (parts are in _data_resource_models,
+        # others in _sqlmodel_ext)
+        id_columns, model = _data_resource_models.create_model(
+            model_cls_name, model_def)
+        collection_model = _sqlmodel_ext.create_model(
             collection_model_cls_name, **{model_name: (List[model], ...)})
         return ModelCombo(
             resource_name=model_name,
             resource_model=model,
             resource_collection_model=collection_model,
             dbtable=model_def.dbtable,
-            id_column=id_column)
+            id_columns=id_columns,
+            expose_routes=model_def.expose_routes,
+            paginate=model_def.paginate)
         
-    if model_def.profile == 'database-sqlalchemy':
+    if model_def.schema_spec == _cfgfile.SchemaSpecEnum.sqlalchemy:
         id_column, model = database_sqlalchemy.create_model_from_db(
             model_cls_name, model_def.dbtable)
         collection_model = create_model(
@@ -56,13 +62,12 @@ def create_pydantic_model(model_name, model_def):
             resource_model=model,
             resource_collection_model=collection_model,
             dbtable=model_def.dbtable,
-            id_column=id_column)
+            id_columns=id_columns)
+
+    raise ValueError('Unsupported data schema specification')
 
 
-    raise ValueError('Unsupported data profile')
-
-
-def create_pydantic_models(config):
+def create_models(datatables: Datatables):
     """Loop over config data resources to create pydantic models.
     
     Parameters:
@@ -71,10 +76,6 @@ def create_pydantic_models(config):
     Returns: (model_name, model)-dictionary
     """
     models = {} 
-    for model_name, model_def in config.datarest.data.items():
-        
-        # AttrDict.items() does not return AttrDict-wrapped dicts for values
-        # that are dicts
-        model_def = attrdict.AttrDict(model_def)
-        models[model_name] = create_pydantic_model(model_name, model_def)
+    for model_name, model_def in datatables.items():
+        models[model_name] = create_model(model_name, model_def)
     return models
