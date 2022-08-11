@@ -4,7 +4,6 @@ import enum
 from typing import Dict, List, Optional, Union
 from typing_extensions import Annotated, Literal
 
-import attrdict
 import yaml
 from pydantic import BaseModel, Field
 
@@ -145,7 +144,7 @@ def write_app_config(cfg_path, app_config):
 def read_app_config(cfg_path='app.yaml'):
     """Read app.yaml config YAML string from cfg_path file.
 
-    Returns attrdict.AttrDict object.
+    Returns AppConfig model.
     """
     with open(cfg_path, 'rb') as config_file:
         dct = yaml.safe_load(config_file)

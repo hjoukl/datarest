@@ -4,8 +4,6 @@
 import collections
 from typing import List 
 
-import attrdict
-
 from . import _cfgfile
 from . import _sqlmodel_ext
 from . import _data_resource_models
@@ -27,7 +25,7 @@ def create_model(model_name, model_def):
     
     Parameters:
        model_name: resource name string
-       model_def: model definition from config file (AttrDict)
+       model_def: model definition from config file
     
     Returns: A ModelCombo object
     """
@@ -59,7 +57,7 @@ def create_models(datatables: Datatables):
     """Loop over config data resources to create pydantic models.
     
     Parameters:
-        config: config dictionary (AttrDict)
+        datatables: Datatables model
         
     Returns: (model_name, model)-dictionary
     """
