@@ -4,8 +4,8 @@ from typing import List
 import frictionless
 from sqlmodel import Field
 
-from . import _sqlmodel_ext
-from . import _resource_ids
+import _sqlmodel_ext
+import _resource_ids
 
 
 tableschema_type_map = {

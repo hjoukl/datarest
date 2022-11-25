@@ -7,7 +7,7 @@ from typing_extensions import Annotated, Literal
 import yaml
 from pydantic import BaseModel, Field
 
-from . import _yaml_tools
+import _yaml_tools
 
 
 @_yaml_tools.dump_as_str
