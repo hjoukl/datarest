@@ -41,6 +41,7 @@ class SchemaSpecEnum(str, enum.Enum):
 
 class SQLAlchemyTable(BaseModel):
     schema_spec: Literal[SchemaSpecEnum.sqlalchemy]
+    import pdb; pdb.set_trace()
     dbtable: str
     paginate: int = 10
     expose_routes: Optional[List[ExposeRoutesEnum]] = [

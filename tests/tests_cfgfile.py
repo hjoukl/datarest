@@ -111,7 +111,6 @@ def test_write_app_config_writes_yaml():
     #temp-file modul
     #sicherstellen, dass test.file gelöscht wird auch bei nichtausführung -> try finally block
 
-    #FAILED AssertionError
 
 @pytest.mark.skip
 #macht es sinn hier noch die Exception in die Funktion zu implementieren? Oder doch einfach den Test skippen

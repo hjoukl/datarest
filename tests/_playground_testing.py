@@ -89,24 +89,22 @@ if __name__=="__main__":
     #test_path = Path("countries_app.yaml")
     #write_app_config(test_path, test_config)
     
-    class ExampleClass:
-        def __init__(self, value):
-            self.value = value
-    
-    example_obj = ExampleClass(123)
-    data = yaml.dump(example_obj)
-    print(data)
-    print(type(data))
-    
 
+    # Define a sample class to use in the tests
     @dump_as_str
     class TestClass:
         def __init__(self, value):
             self.value = value
-    
+
+        def __str__(self):
+            return str(self.value)
+
     test_obj = TestClass(123)
-    data_1 = yaml.dump(test_obj)
-    print(data_1)
-    print(type(data_1))
+    yaml_str = yaml.dump(test_obj)
+
+    print(yaml_str)
+    print(type(yaml_str))
+    print("'123'")
+
     
     print("Successful")
