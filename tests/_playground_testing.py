@@ -6,6 +6,10 @@ import os
 from pydantic import BaseModel, Field
 from pathlib import Path
 import typer
+import yaml
+import sys
+
+from datarest._yaml_tools import str_representer, dump_as_str
 
 #create a test-csv file and safe it in the same directory
 def create_test_data_csv():
@@ -47,18 +51,6 @@ def test_app_config():
     assert test_config.datarest.fastapi.app.title == "TEST API"
  
 
-
-if __name__=="__main__":
-    #create_test_data_csv()
-    #test_app_config(example_data)
-    test_config = test_app_config()
-    print(type(test_config))
-    test_path = Path("countries_app.yaml")
-    write_app_config(test_path, test_config)
-    print("Successful")
-
-
-
 def check_for_type():
     #helper function
     with open ("colors.csv", "r") as file:
@@ -89,10 +81,32 @@ def test_dump_decimal_as_str():
     output = yaml.dump(data)
     assert output == expected_output
 
-
 if __name__=="__main__":
-    #example_data = create_test_data_csv()
-    #test_dump_as_str(example_data)
-    #test_str_respresenter(example_data)
-    test_dump_as_str()
+    #create_test_data_csv()
+    #test_app_config(example_data)
+    #test_config = test_app_config()
+    #print(type(test_config))
+    #test_path = Path("countries_app.yaml")
+    #write_app_config(test_path, test_config)
+    
+    class ExampleClass:
+        def __init__(self, value):
+            self.value = value
+    
+    example_obj = ExampleClass(123)
+    data = yaml.dump(example_obj)
+    print(data)
+    print(type(data))
+    
+
+    @dump_as_str
+    class TestClass:
+        def __init__(self, value):
+            self.value = value
+    
+    test_obj = TestClass(123)
+    data_1 = yaml.dump(test_obj)
+    print(data_1)
+    print(type(data_1))
+    
     print("Successful")
