@@ -4,10 +4,10 @@
 import collections
 from typing import List 
 
-import _cfgfile
-import _sqlmodel_ext
-import _data_resource_models
-from _cfgfile import Datatables
+from . import _cfgfile
+from . import _sqlmodel_ext
+from . import _data_resource_models
+from ._cfgfile import Datatables
 
 
 # TODO: Maybe get rid of ModelCombo namedtuple and switch to a full pydantic

@@ -5,9 +5,9 @@ import sys
 from fastapi import FastAPI
 
 # local imports
-import _models
-import _routes
-from _app_config import config
+from . import _models
+from . import _routes
+from ._app_config import config
 
 
 # Create main FastAPI app with given configuration

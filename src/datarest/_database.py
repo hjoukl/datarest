@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy import orm
 
-from _app_config import config
+from ._app_config import config
 
 
 connect_string = config.datarest.database.connect_string

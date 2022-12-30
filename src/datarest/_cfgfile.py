@@ -7,7 +7,7 @@ from typing_extensions import Annotated, Literal
 import yaml
 from pydantic import BaseModel, Field
 
-import _yaml_tools
+from . import _yaml_tools
 
 
 @_yaml_tools.dump_as_str
@@ -41,7 +41,6 @@ class SchemaSpecEnum(str, enum.Enum):
 
 class SQLAlchemyTable(BaseModel):
     schema_spec: Literal[SchemaSpecEnum.sqlalchemy]
-    import pdb; pdb.set_trace()
     dbtable: str
     paginate: int = 10
     expose_routes: Optional[List[ExposeRoutesEnum]] = [
