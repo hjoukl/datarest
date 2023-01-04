@@ -10,6 +10,7 @@ import yaml
 import sys
 
 from datarest._yaml_tools import str_representer, dump_as_str
+from datarest._cfgfile import AppConfig, write_app_config
 
 #create a test-csv file and safe it in the same directory
 def create_test_data_csv():
@@ -81,6 +82,10 @@ def test_dump_decimal_as_str():
     output = yaml.dump(data)
     assert output == expected_output
 
+def test_write_app_config_invalid_cfg_path_type():
+    write_app_config(123, AppConfig(...))
+
+
 if __name__=="__main__":
     #create_test_data_csv()
     #test_app_config(example_data)
@@ -88,23 +93,4 @@ if __name__=="__main__":
     #print(type(test_config))
     #test_path = Path("countries_app.yaml")
     #write_app_config(test_path, test_config)
-    
-
-    # Define a sample class to use in the tests
-    @dump_as_str
-    class TestClass:
-        def __init__(self, value):
-            self.value = value
-
-        def __str__(self):
-            return str(self.value)
-
-    test_obj = TestClass(123)
-    yaml_str = yaml.dump(test_obj)
-
-    print(yaml_str)
-    print(type(yaml_str))
-    print("'123'")
-
-    
-    print("Successful")
+    test_write_app_config_invalid_cfg_path_type()
