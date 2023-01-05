@@ -86,6 +86,33 @@ def test_write_app_config_invalid_cfg_path_type():
     write_app_config(123, AppConfig(...))
 
 
+def create_id_default(
+        id_type: IdEnum,
+        primary_key=(),
+        concat_sep='.'):
+    """Return an SQLAlchemy column default function for a the primary key ID
+    column.
+    """
+    id_func = id_type_funcs[id_type]
+    if id_func is None:
+        # let the database handle id creation
+        id_ = None
+        return id_
+    else:
+        def id_(context):
+            # a function to create the resource id as a single field composite
+            # biz key
+            print(type(context))
+            data = context.current_parameters
+            print(type(data))
+            fields = (data[pk_field_name] for pk_field_name in primary_key)
+            return id_func(*fields, concat_sep=concat_sep)
+        return id_
+
+    raise ValueError(f'Id type {id_type} is not supported')
+
+
+
 if __name__=="__main__":
     #create_test_data_csv()
     #test_app_config(example_data)
