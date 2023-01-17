@@ -1,8 +1,10 @@
 # Use fastapi_crudrouter to generate router endpoints
 
 from fastapi import Depends, Response, status
-from fastapi_crudrouter import SQLAlchemyCRUDRouter as CRUDRouter
+
+from . import _crudrouter_ext
 from . import _database
+
 
 # Disallow all routes per default to allow for selectively enabling routes
 expose_routes_default = {
@@ -15,6 +17,14 @@ expose_routes_default = {
     }
 
 
+# TODO: Better move the custom status setting to crudrouter subclass, since we
+# have one, anyway, for query support.
+# Customize some CRUDRouter status code defaults since they're suboptimal
+custom_routes_status = {
+    'create': status.HTTP_201_CREATED,
+    }
+
+
 def status_code(http_code: int = status.HTTP_200_OK):
 
     def resp_status_code(response: Response):
@@ -22,12 +32,6 @@ def status_code(http_code: int = status.HTTP_200_OK):
         return response
 
     return resp_status_code
-
-
-# Customize some CRUDRouter status code defaults since they're suboptimal
-custom_routes_status = {
-    'create': status.HTTP_201_CREATED,
-    }
 
 
 # TODO:
@@ -41,16 +45,18 @@ def create_routes(app, models):
         for expose in model.expose_routes:
             route_arg = True
             custom_status = custom_routes_status.get(expose)
+            # Use a custom http response status by means of dependency
             if custom_status:
                 route_arg = [Depends(status_code(custom_status))]
             expose_routes[f"{expose}_route"] = route_arg
 
-        router = CRUDRouter(
+        router = _crudrouter_ext.FilteringSQLAlchemyCRUDRouter(
             schema=model.resource_model,
             db_model=model.resource_model,
             db=_database.get_db,
             prefix=model.resource_name,
             paginate=model.paginate,
+            query_params=model.query_params,
             **expose_routes
             )
         # TODO:

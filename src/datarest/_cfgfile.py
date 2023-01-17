@@ -33,7 +33,7 @@ class SchemaSpecEnum(str, enum.Enum):
     """
     sqlalchemy = "https://www.sqlalchemy.org/"
     data_resource = "https://specs.frictionlessdata.io/data-resource/"
-    
+
     def __str__(self):
         # Avoid IdEnum.xxx output of Enum class, provide actual string value
         return self.value
@@ -45,6 +45,7 @@ class SQLAlchemyTable(BaseModel):
     paginate: int = 10
     expose_routes: Optional[List[ExposeRoutesEnum]] = [
         ExposeRoutesEnum.get_one]
+    query_params: Optional[List[str]] = []
 
 
 class TableschemaTable(BaseModel):
@@ -55,13 +56,14 @@ class TableschemaTable(BaseModel):
     paginate: int = 10
     expose_routes: Optional[List[ExposeRoutesEnum]] = [
         ExposeRoutesEnum.get_one]
+    query_params: Optional[List[str]] = []
 
 
-Table =  Annotated[
+Table = Annotated[
     Union[TableschemaTable, SQLAlchemyTable],
     Field(discriminator='schema_spec')
     ]
- 
+
 
 class Datatables(BaseModel):
     __root__: Dict[str, Table]
@@ -71,10 +73,10 @@ class Datatables(BaseModel):
             return self.__root__[attr]
         except KeyError as exc:
             raise AttributeError from exc
-   
+
     def items(self):
         return self.__root__.items()
-     
+
 
 class App(BaseModel):
     title: str
@@ -101,33 +103,43 @@ class AppConfig(BaseModel):
 
 
 def app_config(
-        table, title=None, description='', version='0.1.0',
+        table,
+        title=None,
+        description='',
+        version='0.1.0',
         connect_string="sqlite:///app.db",
-        expose_routes=(ExposeRoutesEnum.get_one,)):
+        expose_routes=(ExposeRoutesEnum.get_one, ),
+        query_params=()
+        ):
     """Return AppConfig object.
     """
     title = table if title is None else title
-    #expose_routes = list(expose_routes)
-    config = AppConfig(datarest=Datarest(
-        fastapi=Fastapi(
-            app=App(
-                title=f"{title} API",
-                description=description,
-                version=version,
-                )
-            ),
-        database=Database(
-            connect_string=connect_string,
-            ),
-        datatables=Datatables(__root__={
-            table: TableschemaTable(
-                schema_spec="https://specs.frictionlessdata.io/data-resource/",
-                schema=f"{table}.yaml",
-                dbtable=table,
-                expose_routes=expose_routes,
-                )
-            }),
-        ))
+    # expose_routes = list(expose_routes)
+    config = AppConfig(
+        datarest=Datarest(
+            fastapi=Fastapi(
+                app=App(
+                    title=f"{title} API",
+                    description=description,
+                    version=version,
+                    )
+                ),
+            database=Database(connect_string=connect_string, ),
+            datatables=Datatables(
+                __root__={
+                    table:
+                    TableschemaTable(
+                        schema_spec=
+                        "https://specs.frictionlessdata.io/data-resource/",
+                        schema=f"{table}.yaml",
+                        dbtable=table,
+                        expose_routes=expose_routes,
+                        query_params=query_params,
+                        )
+                    }
+                ),
+            )
+        )
     return config
 
 
@@ -135,8 +147,10 @@ def write_app_config(cfg_path, app_config):
     """Write app.yaml config YAML string to cfg_path file.
     """
     app_config_yaml = yaml.safe_dump(
-        app_config.dict(by_alias=True), default_flow_style=False,
-        sort_keys=False)
+        app_config.dict(by_alias=True),
+        default_flow_style=False,
+        sort_keys=False
+        )
     with open(cfg_path, encoding='utf-8', mode='w') as cfg_file:
         cfg_file.write(app_config_yaml)
 
