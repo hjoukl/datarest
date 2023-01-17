@@ -56,6 +56,9 @@ def cli():
                 'uuid4_base64', help='Type of resource ID to expose'),
             primary_key: List[str] = typer.Option(
                 [], help='Provide one or more primary key field(s)'),
+            query: List[str] = typer.Option(
+                [], help='Provide one or more field(s) eligible as query'
+                ' parameter'),
             description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)'),
             rewrite_datafile: bool = typer.Option(
@@ -82,8 +85,10 @@ def cli():
                     title=table.title(),
                     version='0.1.0',
                     connect_string=connect_string,
-                    expose_routes=expose)
-            )
+                    expose_routes=expose,
+                    query_params=query,
+                    )
+                )
 
             datafile_resource = frictionless.describe(
                 datafile, encoding=encoding)
