@@ -1,3 +1,6 @@
+# A customized SLQAlchemyCRUDRouter subclass that adds filter query support.
+# Gratefully adapted from https://github.com/awtkns/fastapi-crudrouter/pull/61
+
 import textwrap
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
@@ -8,10 +11,7 @@ from fastapi_crudrouter.core.sqlalchemy import (
     )
 import pydantic
 
-from . import _database
 
-
-# TODO: Refactor to separate module
 T = TypeVar("T", bound=pydantic.BaseModel)
 FILTER = Dict[str, Optional[Union[int, float, str, bool]]]
 
@@ -43,7 +43,6 @@ def status_code(http_code: int = status.HTTP_200_OK):
 # - Take a look at dataclass and/or attrs
 # - see also https://github.com/tiangolo/fastapi/issues/4700 for potential
 #   problems + hints
-# Gratefully adapted from https://github.com/awtkns/fastapi-crudrouter/pull/61
 def query_factory(
         schema: Type[T],
         query_params: Optional[List[str]] = None
