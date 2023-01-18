@@ -59,7 +59,9 @@ def cli():
             query: List[str] = typer.Option(
                 [], help='Provide one or more field(s) eligible as query'
                 ' parameter'),
-            description: Optional[List[str]] = typer.Option(
+            description: Optional[str] = typer.Option(
+                None, help='Provide API description'),
+            field_description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)'),
             rewrite_datafile: bool = typer.Option(
                 False, help='Rewrite normalized + id-enhanced data file')):
@@ -83,6 +85,7 @@ def cli():
                 app_config=_cfgfile.app_config(
                     table=table,
                     title=table.title(),
+                    description=description,
                     version='0.1.0',
                     connect_string=connect_string,
                     expose_routes=expose,
@@ -100,9 +103,9 @@ def cli():
             datafile_resource = normalize_field_names(
                 datafile_resource)
 
-            if description:
+            if field_description:
                 add_descriptions(
-                    datafile_resource, **_dict_from(description))
+                    datafile_resource, **_dict_from(field_description))
 
             if _cfgfile.ExposeRoutesEnum.create in expose:
                 create_exposed = True
@@ -152,7 +155,12 @@ def cli():
             connect_string: Optional[str] = typer.Option("sqlite:///app.db"),
             expose: Optional[List[_cfgfile.ExposeRoutesEnum]] = typer.Option(
                 ('get_one',), help='Select the API method(s) to expose'),
-            description: Optional[List[str]] = typer.Option(
+            query: List[str] = typer.Option(
+                [], help='Provide one or more field(s) eligible as query'
+                ' parameter'),
+            description: Optional[str] = typer.Option(
+                None, help='Provide API description'),
+            field_description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)')):
         cfg_path = Path('app.yaml')
         if cfg_path.exists():
@@ -165,16 +173,19 @@ def cli():
                 app_config=_cfgfile.app_config(
                     table=table,
                     title=table.title(),
+                    description=description,
                     version='0.1.0',
                     connect_string=connect_string,
-                    expose_routes=expose)
-            )
+                    expose_routes=expose,
+                    query_params=query
+                    )
+                )
 
             db_resource = frictionless.describe(
                 connect_string, control=formats.SqlControl(table=table))
 
-            if description:
-                add_descriptions(db_resource, **_dict_from(description))
+            if field_description:
+                add_descriptions(db_resource, **_dict_from(field_description))
             add_examples(db_resource)
 
             primary_key = db_resource.schema.primary_key
@@ -195,7 +206,7 @@ def cli():
             else:
                 # TODO: This works for an integer PK - care for other types
                 # and check if create route is actually exposed?
-                db_resource.schema['x_datarest_primary_key_info'] = {
+                db_resource.schema.custom['x_datarest_primary_key_info'] = {
                     'id_type': str(IdEnum.biz_key),
                     'id_src_fields': []
                 }

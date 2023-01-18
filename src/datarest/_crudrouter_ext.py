@@ -110,7 +110,11 @@ class FilteringSQLAlchemyCRUDRouter(SQLAlchemyCRUDRouter):
             ) -> None:
         query_params = [] if query_params is None else query_params
 
-        self.filter = Depends(query_factory(schema, query_params))
+        query_dependency = query_factory(schema, query_params)
+        if query_dependency is None:
+            self.filter = Depends(lambda: {})
+        else:
+            self.filter = Depends(query_factory(schema, query_params))
         super().__init__(
             schema=schema,
             db_model=db_model,
@@ -130,7 +134,6 @@ class FilteringSQLAlchemyCRUDRouter(SQLAlchemyCRUDRouter):
             )
 
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
-        print(self, args, kwargs)
 
         def route(
                 db: Session = Depends(self.db_func),
