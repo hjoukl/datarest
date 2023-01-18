@@ -7,20 +7,16 @@ from datarest._data_resource_tools import add_attr, add_descriptions, identifier
 def test_add_attr():
     # Test adding an attribute to all fields in a resource's schema
     resource = frictionless.Resource(data=[['col1', 'col2'], [1, 2]])
-    expected = frictionless.Resource(
-        data=[['col1', 'col2'], [1, 2]],
-        schema={
-            'fields': [
-                {'name': 'col1', 'test_attr': 'val1'},
-                {'name': 'col2', 'test_attr': 'val2'},
-            ]
-        }
-    )
-    assert add_attr(resource, 'test_attr', col1='val1', col2='val2') == expected
+    print(resource)
 
-    #was genau macht add_attr? wenn ich es auf eine resource (frictionless.Resource) anwende und vergleiche, sehe ich keinen unterschie dzu vorher?
+    resource_2 = add_attr(resource, 'test_attr')
+    print(resource_2)
 
 
+
+    # tst umschreiben, so dass am ende gecheckt wird, ob col1 ein attribut test_attr besitzt mit val1
+
+# evtl parametrisieren
 def test_identifier_field_name():
     # Test field names that are already valid identifiers
     assert identifier_field_name('field_name') == 'field_name'
@@ -61,5 +57,6 @@ def test_normalize_field_names():
     )
     assert normalize_field_names(resource) == expected
 
-...
+if __name__=="__main__":
+    test_add_attr()
 

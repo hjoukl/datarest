@@ -31,7 +31,7 @@ def test_create_model(clear_sqlmodel):
     """
 
     hero = create_model(
-        "Hero",
+        #__module__"Hero",
         {
             "id": (Optional[int], Field(default=None, primary_key=True)),
             "name": str,

@@ -156,7 +156,7 @@ def primary_key_step(
         if len(primary_key) > 1:
             raise ValueError(
                 f'Composite primary key not supported for ID type {id_type}')
-        pk_field = fields.get_field(name=primary_key[0])
+        pk_field = resource.schema.get_field(name=primary_key[0])
         if create_exposed and pk_field.type not in ['integer']:
             raise ValueError(
                 f'ID type {id_type} must be integer if data create is exposed')
@@ -165,6 +165,11 @@ def primary_key_step(
             current = resource.to_copy()
             # Meta
             resource.schema.primary_key = list(primary_key)
+
+            resource.schema['x_datarest_primary_key_info'] = {
+                'id_type': str(id_type),
+                'id_src_fields': list(primary_key)
+                }
 
         return step
 

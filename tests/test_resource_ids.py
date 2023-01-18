@@ -57,7 +57,9 @@ def test_uuid4_base64_id():
     assert id1 != id2  
 
     #Can there be more test cases?
+    
 
+# möglichkeit des parametisierens fürs mapping?
 
 def test_create_id_default():
 
