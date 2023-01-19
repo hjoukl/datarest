@@ -12,12 +12,15 @@ from ._resource_ids import (
 
 
 def add_attr(resource, attr_name, **field_attrs):
-    """Add attr: value to data resource table schema fields for each field in
-    {field_name: value} field dict.
+    """Add `attr_name` to each resource field if an entry for field.name
+    exists in field_attrs keyword args.
     """
     for field in resource.schema.fields:
-        attr_value = field_attrs[field.name]
-        setattr(field, attr_name, attr_value)
+        try:
+            attr_value = field_attrs[field.name]
+            setattr(field, attr_name, attr_value)
+        except KeyError:
+            pass
     return resource
 
 
