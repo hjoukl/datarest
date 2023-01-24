@@ -43,6 +43,8 @@ def status_code(http_code: int = status.HTTP_200_OK):
 # - Take a look at dataclass and/or attrs
 # - see also https://github.com/tiangolo/fastapi/issues/4700 for potential
 #   problems + hints
+# TODO: Make this robust against invalid identifiers, at least raise
+# proper exceptions
 def query_factory(
         schema: Type[T],
         query_params: Optional[List[str]] = None
