@@ -1,4 +1,6 @@
 # The datarest command line interface
+import os
+import string
 import time
 from pathlib import Path
 import shutil
@@ -59,8 +61,8 @@ def cli():
             query: List[str] = typer.Option(
                 [], help='Provide one or more field(s) eligible as query'
                 ' parameter'),
-            description: Optional[str] = typer.Option(
-                None, help='Provide API description'),
+            description: str = typer.Option(
+                '', help='Provide API description'),
             field_description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)'),
             rewrite_datafile: bool = typer.Option(
@@ -152,14 +154,14 @@ def cli():
     @init_app.command()
     def db(
             table: str = typer.Argument(...),
-            connect_string: Optional[str] = typer.Option("sqlite:///app.db"),
+            connect_string: str = typer.Option("sqlite:///app.db"),
             expose: Optional[List[_cfgfile.ExposeRoutesEnum]] = typer.Option(
                 ('get_one',), help='Select the API method(s) to expose'),
             query: List[str] = typer.Option(
                 [], help='Provide one or more field(s) eligible as query'
                 ' parameter'),
-            description: Optional[str] = typer.Option(
-                None, help='Provide API description'),
+            description: str = typer.Option(
+                '', help='Provide API description'),
             field_description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)')):
         cfg_path = Path('app.yaml')
@@ -181,8 +183,11 @@ def cli():
                     )
                 )
 
+            # Connect to DB using environment-expanded connect_string
             db_resource = frictionless.describe(
-                connect_string, control=formats.SqlControl(table=table))
+                string.Template(connect_string).substitute(os.environ),
+                control=formats.SqlControl(table=table)
+                )
 
             if field_description:
                 add_descriptions(db_resource, **_dict_from(field_description))

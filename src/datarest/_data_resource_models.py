@@ -6,6 +6,7 @@ from . import _resource_ids
 
 
 tableschema_type_map = {
+    'date': str,
     'string': str,
     'number': float,
     'integer': int,
