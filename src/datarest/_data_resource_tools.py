@@ -179,12 +179,15 @@ def primary_key_step(
 
         class _primary_key_step(frictionless.Step):
 
-            resource.schema['x_datarest_primary_key_info'] = {
-                'id_type': str(id_type),
-                'id_src_fields': list(primary_key)
-                }
+            def transform_resource(self, resource):
+                # Meta
+                resource.schema.primary_key = list(primary_key)
+                resource.schema.custom['x_datarest_primary_key_info'] = {
+                    'id_type': str(id_type),
+                    'id_src_fields': list(primary_key)
+                    }
 
-        return step
+        return _primary_key_step
 
     else:
         if id_field_name in field_names:

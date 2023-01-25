@@ -1,0 +1,17 @@
+datarest:
+  fastapi:
+    app:
+      title: Worldcups API
+      description: ''
+      version: 0.1.0
+  database:
+    connect_string: sqlite:///app.db
+  datatables:
+    worldcups:
+      schema_spec: https://specs.frictionlessdata.io/data-resource/
+      schema: worldcups.yaml
+      dbtable: worldcups
+      paginate: 10
+      expose_routes:
+      - get_one
+      query_params: []
