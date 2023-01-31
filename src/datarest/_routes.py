@@ -36,7 +36,7 @@ def status_code(http_code: int = status.HTTP_200_OK):
 
 # TODO:
 # - Use PATCH instead of PUT for update(?)
-def create_routes(app, models):
+def create_routes(app, models, dependencies=None, responses=None):
     """Create fastapi_crudrouter.SQLAlchemyCRUDRouter objects for the models
     and register the routers with the main FastAPI app.
     """
@@ -56,7 +56,9 @@ def create_routes(app, models):
             db=_database.get_db,
             prefix=model.resource_name,
             paginate=model.paginate,
+            dependencies=dependencies,
             query_params=model.query_params,
+            responses=responses,
             **expose_routes
             )
         # TODO:

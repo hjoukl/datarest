@@ -12,7 +12,7 @@ def dump_as_str(cls):
     """Class decorator, register cls to YAML-dump objects as str(obj).
     """
     # The PyYAML docs really could be better...
-    yaml.add_representer(cls, str_representer)
+    #yaml.add_representer(cls, str_representer)
     yaml.add_representer(cls, str_representer, Dumper=yaml.SafeDumper)
     return cls
 

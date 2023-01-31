@@ -66,7 +66,14 @@ def cli():
             field_description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)'),
             rewrite_datafile: bool = typer.Option(
-                False, help='Rewrite normalized + id-enhanced data file')):
+                False, help='Rewrite normalized + id-enhanced data file'),
+            authn: Optional[_cfgfile.AuthnEnum] = typer.Option(
+                None, help='Authentication mechanism'),
+            ldap_bind_dn: Optional[str] = typer.Option(
+                None, help='LDAP bind dn'),
+            ldap_server: Optional[str] = typer.Option(
+                None, help='LDAP server'),
+            ):
         cfg_path = Path('app.yaml')
         if cfg_path.exists():
             typer.echo(f'Found existing {cfg_path.name}, skipping init.')
@@ -92,6 +99,9 @@ def cli():
                     connect_string=connect_string,
                     expose_routes=expose,
                     query_params=query,
+                    authn_type=authn,
+                    ldap_bind_dn=ldap_bind_dn,
+                    ldap_server=ldap_server,
                     )
                 )
 
@@ -163,7 +173,14 @@ def cli():
             description: str = typer.Option(
                 '', help='Provide API description'),
             field_description: Optional[List[str]] = typer.Option(
-                None, help='Provide one or more field description(s)')):
+                None, help='Provide one or more field description(s)'),
+            authn: Optional[_cfgfile.AuthnEnum] = typer.Option(
+                None, help='Authentication mechanism'),
+            ldap_bind_dn: Optional[str] = typer.Option(
+                None, help='LDAP bind dn'),
+            ldap_server: Optional[str] = typer.Option(
+                None, help='LDAP server'),
+            ):
         cfg_path = Path('app.yaml')
         if cfg_path.exists():
             typer.echo(f'Found existing {cfg_path.name}, skipping init.')
@@ -179,7 +196,10 @@ def cli():
                     version='0.1.0',
                     connect_string=connect_string,
                     expose_routes=expose,
-                    query_params=query
+                    query_params=query,
+                    authn_type=authn,
+                    ldap_bind_dn=ldap_bind_dn,
+                    ldap_server=ldap_server,
                     )
                 )
 
@@ -239,7 +259,7 @@ def cli():
         """Python low code data-driven REST-Tool.
         """
 
-    # get the type cli's underlying click command
+    # get the typer cli's underlying click command
     typer_click_object = typer.main.get_command(app)
 
     # uvicorn.main is the uvicorn cli entry point.
@@ -251,6 +271,7 @@ def cli():
     app_arg.default = 'datarest._app:app'
 
     # hook uvicorn's click to our typer cli here
-    typer_click_object.add_command(uvicorn.main, 'run')
+    uvicorn.main.name = 'run'
+    typer_click_object.add_command(uvicorn.main)
 
     return typer_click_object()
