@@ -89,6 +89,8 @@ def test_add_attr_empty_attribute():
 
 # parametrisieren -> für Integer values interessant, ansonsten evtl. schlechter lesbar
 # pytest.mark.parametrize("field1, output", [("field_name, field_name")])
+# über test_identifier_field_name werden auch die funktionen normalize_headers und normalize_headers_step abgedeckt
+# beide funktionen benutzen im grunde nur die identifier_field_name()-Funktion
 
 def test_identifier_field_name():
     # Test field names that are already valid identifiers
@@ -107,29 +109,10 @@ def test_identifier_field_name():
 
 #gleiches wie in (1)
 
-def test_normalize_field_names():
-    # Test normalizing field names in a resource with multiple fields
-    resource = frictionless.Resource(
-        data=[['col 1', 'col-2', '3col'], [1, 2, 3]],
-        schema={
-            'fields': [
-                {'name': 'col 1'},
-                {'name': 'col-2'},
-                {'name': '3col'},
-            ]
-        }
-    )
-    expected = frictionless.Resource(
-        data=[['col_1', 'col_2', 'f_3col'], [1, 2, 3]],
-        schema={
-            'fields': [
-                {'name': 'col_1'},
-                {'name': 'col_2'},
-                {'name': 'f_3col'},
-            ]
-        }
-    )
-    assert normalize_field_names(resource) == expected
+def test_transform_resource_valid_input():
+    
+    test_schema = Schema(fields=[fields.StringField(name='field1'), fields.StringField(name='field2')])
+    test_resource = Resource(name='test',schema=test_schema, data=[])
 
 if __name__=="__main__":
     test_add_attr_empty_attribute()

@@ -6,7 +6,7 @@ import tempfile
 from pydantic import ValidationError
 
 from datarest._yaml_tools import dump_as_str, dump_decimal_as_str
-from datarest._cfgfile import app_config, write_app_config, read_app_config, AppConfig, ExposeRoutesEnum, SchemaSpecEnum, Datarest, Fastapi, App, Datatables, Database, TableschemaTable
+from datarest._cfgfile import app_config, write_app_config, read_app_config, AppConfig, ExposeRoutesEnum, SchemaSpecEnum, Datarest, Fastapi, App, Datatables, Database, TableschemaTable, Authn
 
 dump_decimal_as_str()
 dump_as_str(ExposeRoutesEnum)
@@ -20,8 +20,8 @@ def test_app_config_defaults():
     assert config.datarest.fastapi.app.title == "table API"
     assert config.datarest.fastapi.app.description == ""
     assert config.datarest.fastapi.app.version == "0.1.0"
+    assert config.datarest.fastapi.authn == None
     assert config.datarest.database.connect_string == "sqlite:///app.db"
-    #import pdb; pdb.set_trace()
     assert config.datarest.datatables.__root__['table'].schema_spec == SchemaSpecEnum.data_resource
     assert config.datarest.datatables.__root__['table'].schema_ == 'table.yaml'
     assert config.datarest.datatables.__root__['table'].dbtable == 'table'
@@ -31,11 +31,22 @@ def test_app_config_defaults():
 
 def test_app_config_overrides():
     # Override default values
-    config = app_config('table', title='Custom Title', description='Custom Description', version='1.2.3', connect_string='postgresql://localhost/app')
+    config = app_config('table', 
+        title='Custom Title', 
+        description='Custom Description', 
+        version='1.2.3', 
+        authn_type="HTTPBasic+LDAP", 
+        ldap_bind_dn="test_dn", 
+        ldap_server="test_server", 
+        connect_string='postgresql://localhost/app',
+        )
     assert isinstance(config, AppConfig)
     assert config.datarest.fastapi.app.title == "Custom Title API"
     assert config.datarest.fastapi.app.description == "Custom Description"
     assert config.datarest.fastapi.app.version == "1.2.3"
+    assert config.datarest.fastapi.authn.authn_type == "HTTPBasic+LDAP"
+    assert config.datarest.fastapi.authn.ldap.bind_dn == "test_dn"
+    assert config.datarest.fastapi.authn.ldap.server == "test_server"
     assert config.datarest.database.connect_string == "postgresql://localhost/app"
     assert config.datarest.datatables.__root__['table'].schema_spec == SchemaSpecEnum.data_resource
     assert config.datarest.datatables.__root__['table'].schema_ == 'table.yaml'
@@ -73,8 +84,9 @@ def test_write_app_config_writes_yaml():
                 title="Test API",
                 description="Test Description",
                 version="1.0.0",
+                ),
+                authn=None
             ),
-        ),
         database=Database(
             connect_string="sqlite:///test.db",
         ),
@@ -94,7 +106,8 @@ def test_write_app_config_writes_yaml():
             write_app_config(cfg_path, app_config)
             with open(cfg_path, 'r') as f:
                 written_yaml = yaml.safe_load(f)
-            assert written_yaml == app_config.dict(by_alias=True)
+
+            assert written_yaml == app_config.dict(by_alias=True, exclude_unset=True, exclude_none=True)
     finally:
         os.remove(cfg_path)
 

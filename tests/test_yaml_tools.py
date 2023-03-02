@@ -26,7 +26,9 @@ def test_str_representer():
     assert str_representer(dumper, decimal_obj).value == "1.2345"
 
 
+
 def test_dump_as_str():
+    
     # Define a sample class to use in the tests
     @dump_as_str
     class TestClass:
@@ -40,6 +42,31 @@ def test_dump_as_str():
     yaml_str = yaml.dump(test_obj)
 
     assert yaml_str == "'123'\n"
+    #test fails -> yaml_str returns pointer to yaml_str
+
+    """
+    # Define a sample class to use in the tests
+    @dump_as_str
+    class TestClass:
+        pass
+
+    class Testclass_2:
+        pass
+
+    test_obj = TestClass()
+    test_obj_2 = Testclass_2()
+    """
+
+    """
+    with open("document.yaml", "w") as stream:
+        yaml.dump(test_obj, stream)
+    with open("document_2.yaml", "w") as stream_2:
+        yaml.dump(test_obj_2, stream_2)
+    """
+    #breakpoint()
+    #assert isinstance(yaml_str, str)
+    #assert isinstance(yaml_str_2, str)
+    #cannot see a difference between these two classes -> always get the pointer as a return (__repr__() == __str__())
 
 
 def test_dump_as_str_inheritance():
@@ -59,5 +86,9 @@ def test_dump_as_str_inheritance():
 
     # Check that the resulting YAML string contains the expected string representation of the object
     assert "base class string representation" in yaml_str
+
+
+if __name__=="__main__":
+    test_dump_as_str()
 
 
