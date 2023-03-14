@@ -31,14 +31,14 @@ def test_create_model(clear_sqlmodel):
     """
 
     hero = create_model(
-        #__module__"Hero",
+        "Hero",
         {
             "id": (Optional[int], Field(default=None, primary_key=True)),
             "name": str,
             "secret_name": (str,),  # test 1-tuple
             "age": (Optional[int], None),
         },
-        table=True,
+        table=True
     )
 
     hero_1 = hero(**{"name": "Deadpond", "secret_name": "Dive Wilson"})

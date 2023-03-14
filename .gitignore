@@ -256,5 +256,8 @@ dkms.conf
 # Built Visual Studio Code Extensions
 *.vsix
 
+# all of the config files
+*.yaml
+
 # Some local files which I used for testing
-/datarest/tests/_playground_testing.py
+_playground_testing.py
