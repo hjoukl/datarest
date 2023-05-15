@@ -7,7 +7,6 @@ from typing import List
 from . import _cfgfile
 from . import _sqlmodel_ext
 from . import _data_resource_models
-from ._cfgfile import Datatables
 
 
 # TODO: Maybe get rid of ModelCombo namedtuple and switch to a full pydantic
@@ -54,7 +53,7 @@ def create_model(model_name, model_def):
     raise ValueError('Unsupported data schema specification')
 
 
-def create_models(datatables: Datatables):
+def create_models(datatables: _cfgfile.Datatables):
     """Loop over config data resources to create pydantic models.
 
     Parameters:

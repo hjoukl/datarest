@@ -1,10 +1,17 @@
 # A customized SLQAlchemyCRUDRouter subclass that adds filter query support.
 # Gratefully adapted from https://github.com/awtkns/fastapi-crudrouter/pull/61
 
-import textwrap
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+# TODO: Redesign query parameter and response_model_exclude_none handling. I
+# think this needs changes to fastapi-crudrouter upstream, to make it more
+# extensible for passing through FastAPI route decorator args. We shouldn't
+# need to override _add_api_route() and (probably) _get_all() in a subclass to
+# achieve these things.
 
-from fastapi import Depends, Response, Query, status
+#import dataclasses
+import textwrap
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+
+from fastapi import Depends, HTTPException, Response, Query, status
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
 from fastapi_crudrouter.core.sqlalchemy import (
     DEPENDENCIES, CALLABLE_LIST, PAGINATION, SCHEMA, Model, Session
@@ -14,6 +21,15 @@ import pydantic
 
 T = TypeVar("T", bound=pydantic.BaseModel)
 FILTER = Dict[str, Optional[Union[int, float, str, bool]]]
+#ROUTE_DECORATOR_KWARGS = Dict[str, Any]
+#QUERY_PARAMS = Optional[List[str]]
+
+
+#@dataclasses.dataclass
+#class RouteArgs:
+#    dependencies: DEPENDENCIES
+#    query_params: QUERY_PARAMS = None
+#    kwargs: ROUTE_DECORATOR_KWARGS = dataclasses.field(default=dict)
 
 
 filter_mapping = {
@@ -49,7 +65,7 @@ def query_factory(
         schema: Type[T],
         query_params: Optional[List[str]] = None
         ) -> Any:
-    """Dynamically build a Fastapi dependency for query parameters.
+    """Dynamically build a FastAPI dependency for query parameters.
 
     Based on available fields in the model and the given query_params names
     to expose.
@@ -90,6 +106,14 @@ def query_factory(
 
 
 class FilteringSQLAlchemyCRUDRouter(SQLAlchemyCRUDRouter):
+    """Custom SQLAlchemyCRUDRouter that adds filter/query parameter support.
+
+    Additional parameters:
+        query_params: A list of model attribute names to make available as 
+            filter query parameter names.
+        response_model_exclude_none: If True exclude null values from JSON
+            responses (FastAPI/Pydantic switch) 
+    """
 
     def __init__(
             self,
@@ -108,15 +132,22 @@ class FilteringSQLAlchemyCRUDRouter(SQLAlchemyCRUDRouter):
             delete_one_route: Union[bool, DEPENDENCIES] = True,
             delete_all_route: Union[bool, DEPENDENCIES] = True,
             query_params: Optional[List[str]] = None,
+            response_model_exclude_none: bool = True,
             **kwargs: Any
             ) -> None:
         query_params = [] if query_params is None else query_params
+        self.response_model_exclude_none = response_model_exclude_none
 
+        # Create a FastAPI depency for a filter, using given query parameters.
+        # We will make use of it when defining the route() inner function in
+        # the _get_all method - FastAPI injects the dependency for us when
+        # invoking it.
         query_dependency = query_factory(schema, query_params)
         if query_dependency is None:
             self.filter = Depends(lambda: {})
         else:
-            self.filter = Depends(query_factory(schema, query_params))
+            self.filter = Depends(query_dependency)
+
         super().__init__(
             schema=schema,
             db_model=db_model,
@@ -135,6 +166,32 @@ class FilteringSQLAlchemyCRUDRouter(SQLAlchemyCRUDRouter):
             **kwargs
             )
 
+    # We currently need to override this base class method solely to set the
+    # response_model_exclude_none switch.
+    def _add_api_route(
+        self,
+        path: str,
+        endpoint: Callable[..., Any],
+        dependencies: Union[bool, DEPENDENCIES],
+        error_responses: Optional[List[HTTPException]] = None,
+        **kwargs: Any,
+    ) -> None:
+        dependencies = [] if isinstance(dependencies, bool) else dependencies
+        responses: Any = (
+            {
+                err.status_code: {"detail": err.detail}
+                for err in error_responses
+            }
+            if error_responses
+            else None
+        )
+        super().add_api_route(
+            path, endpoint, dependencies=dependencies, responses=responses,
+            response_model_exclude_none=self.response_model_exclude_none,
+            **kwargs
+        )
+
+    # Override the base class method to hook our filter query params in.
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
 
         def route(

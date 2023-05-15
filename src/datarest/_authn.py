@@ -1,60 +1,86 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from dataclasses import dataclass
+from typing import Type, Union
 
-from ._cfgfile import AuthnEnum
+from fastapi import Depends, HTTPException, status
+from fastapi.security import (
+    HTTPBasic, HTTPBasicCredentials, OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm)
+from fastapi.security.base import SecurityBase
+from . import _cfgfile
 from ._app_config import config
 
 
-# TODO: Does a more elaborate design make sense here? Can we decouple authn API
-# (e.g. HTTP Basic Auth) from backend/authenticator (e.g. LDAP)?
-def create_authn(authn: AuthnEnum):
+@dataclass
+class AuthnScheme:
+    scheme: SecurityBase
+    CredentialsType: Union[Type[str], Type[HTTPBasicCredentials]]
+
+
+def create_authn(authn: _cfgfile.Authn):
     """
     Args:
-        authn: Authentication model
+        authn: Authentication config model
 
     Returns:
-        A list of FastAPI authentication dependencies ([Depends(...)])
+        A list of authentication dependency callables
+        ([authenticate_func, ...])
     """
+    AuthnEnum = _cfgfile.AuthnEnum
     if authn.authn_type == AuthnEnum.HTTPBasic_LDAP:
-        return _httpbasic_ldap()
+        authn_deps =  [
+            _ldap_authentication(
+                ldap=authn.ldap,
+                authn_scheme=_httpbasic_scheme())
+            ]
     elif authn.authn_type == AuthnEnum.OAuth2PasswordBearer_LDAP:
-        return _oauth2_passwordbearer_ldap()
-    return []
+        authn_deps = [
+            _ldap_authentication(
+                ldap=authn.ldap,
+                authn_scheme=_oauth2_passwordbearer_scheme()
+                )
+            ]
+
+    return authn_deps
 
 
-def _httpbasic_ldap():
-    """Create and return a HTTPBasicCredentials-based auth function dependency.
+def _httpbasic_scheme():
+    return AuthnScheme(
+        scheme=HTTPBasic(), CredentialsType=HTTPBasicCredentials )
+
+
+def _ldap_authentication(ldap: _cfgfile.LDAP, authn_scheme: AuthnScheme):
+    """Create and return an LDAP-backed auth function.
 
     Returns:
-        [Depends(authenticate)] where authenticate is a function that expects a
-        HTTPBasicCredentials arg and returns the (authenticated) username on
-        successful LDAP authentication.
+        authenticate where authenticate is a callable that expects an
+        authn_scheme.CredentialsType arg and returns the (authenticated)
+        username on successful LDAP authentication.
     """
-    from fastapi.security import HTTPBasic, HTTPBasicCredentials
     from . import _ldap_authn
-    security = HTTPBasic()
-    authn_backend = _ldap_authn.LDAPAuth(                     
-        bind_dn=config.datarest.fastapi.authn.ldap.bind_dn,
-        server=config.datarest.fastapi.authn.ldap.server)
+    authn_backend = _ldap_authn.LDAPAuth(
+        bind_dn=ldap.bind_dn, server=ldap.server)
 
     def authenticate(
-            credentials: HTTPBasicCredentials = Depends(security)
+            credentials: authn_scheme.CredentialsType = Depends(
+                authn_scheme.scheme)
             ):
         """Authenticate LDAP user with given basic auth credentials.
+
+        Returns: Authenticated username
         """
-        try:                                      
+
+        try:
             ldap_user = authn_backend.authenticate(
                 credentials.username, credentials.password)
-        except _ldap_authn.InvalidCredentialsError:  
-            raise HTTPException(                  
+        except _ldap_authn.InvalidCredentialsError:
+            raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid credentials",     
+                detail="Invalid credentials",
                 headers={"WWW-Authenticate": "Basic"},
-                )                                 
+                )
         return credentials.username
-    return [Depends(authenticate)]
+    return authenticate
 
 
-def _oauth2_passwordbearer_ldap():
-    from fastapi.security import (
-        OAuth2PasswordBearer, OAuth2PasswordRequestForm)
+def _oauth2_passwordbearer_scheme():
     raise NotImplementedError()

@@ -14,7 +14,8 @@ from . import _models
 from . import _yaml_tools
 from ._resource_ids import IdEnum
 from ._data_resource_tools import (
-    add_descriptions, add_examples, normalize_field_names, primary_key_step)
+    add_descriptions, add_examples, modify_resource_fields,
+    field_name_normalizer, field_type_mapper, primary_key_step)
 
 
 # Make Decimal objects work with pyyaml (needed for examples)
@@ -49,7 +50,7 @@ def cli():
     # define our own exposed cli commands & params
     @init_app.command()
     def datafile(
-            datafile: Path = typer.Argument(...),
+            datafile: str = typer.Argument(...),
             encoding: Optional[str] = typer.Option(None),
             connect_string: Optional[str] = typer.Option("sqlite:///app.db"),
             expose: Optional[List[_cfgfile.ExposeRoutesEnum]] = typer.Option(
@@ -86,7 +87,9 @@ def cli():
                     f'{datafile.name}.{timestamp}.bak')
                 shutil.copyfile(datafile, datafile_bak)
 
-            table = datafile.stem.lower()
+            # TODOS: This is a hack, we're applying Path to a potential URL.
+            # While it works this is obviously less than ideal.
+            table = Path(datafile).stem.lower()
 
             # write main app.yaml config file
             _cfgfile.write_app_config(
@@ -108,12 +111,18 @@ def cli():
             datafile_resource = frictionless.describe(
                 datafile, encoding=encoding)
 
-            # normalize table headers to be valid identifiers
+            # Normalize table headers to be valid identifiers, use string
+            # instead of any tableschema datatype.
+            # See https://github.com/frictionlessdata/framework/issues/812 for
+            # background to CSV any detection.
             # TODO: Should this better be done with transform steps?
             # Is there a simple way to modify header names and avoid rewriting
             # the data?
-            datafile_resource = normalize_field_names(
-                datafile_resource)
+            datafile_resource = modify_resource_fields(
+                datafile_resource,
+                field_name_normalizer(),
+                field_type_mapper(any='string')
+                )
 
             if field_description:
                 add_descriptions(
