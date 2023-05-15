@@ -7,7 +7,7 @@
 # need to override _add_api_route() and (probably) _get_all() in a subclass to
 # achieve these things.
 
-#import dataclasses
+import dataclasses
 import textwrap
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
@@ -17,10 +17,11 @@ from fastapi_crudrouter.core.sqlalchemy import (
     DEPENDENCIES, CALLABLE_LIST, PAGINATION, SCHEMA, Model, Session
     )
 import pydantic
+from sqlalchemy import and_
+from typing_extensions import Annotated
 
 
 T = TypeVar("T", bound=pydantic.BaseModel)
-FILTER = Dict[str, Optional[Union[int, float, str, bool]]]
 #ROUTE_DECORATOR_KWARGS = Dict[str, Any]
 #QUERY_PARAMS = Optional[List[str]]
 
@@ -32,7 +33,8 @@ FILTER = Dict[str, Optional[Union[int, float, str, bool]]]
 #    kwargs: ROUTE_DECORATOR_KWARGS = dataclasses.field(default=dict)
 
 
-filter_mapping = {
+# Filter query param type mapping.
+filter_type_mapping = {
     "int": int,
     "float": float,
     "bool": bool,
@@ -55,10 +57,8 @@ def status_code(http_code: int = status.HTTP_200_OK):
     return resp_status_code
 
 
-# TODO: Any chance to do this without exec? AST?
-# - Take a look at dataclass and/or attrs
-# - see also https://github.com/tiangolo/fastapi/issues/4700 for potential
-#   problems + hints
+# See also https://github.com/tiangolo/fastapi/issues/4700 for potential
+# problems + hints
 # TODO: Make this robust against invalid identifiers, at least raise
 # proper exceptions
 def query_factory(
@@ -72,35 +72,23 @@ def query_factory(
     """
     query_params = [] if query_params is None else query_params
 
-    arg_template = "{name}: Optional[{typ}] = Query(None)"
     args_list = []
-
-    ret_dict_arg_template = "{}={}"
-    ret_dict_args = []
     # TODO: Exclude REST resource id field from allowed query params
+    # TODO: Add logging for suppressed query fields which are not in the model
     for name, field in schema.__fields__.items():
         if (name in query_params
-                and field.type_.__name__ in filter_mapping):
-            args_list.append(
-                arg_template.format(
-                    name=name,
-                    typ=filter_mapping[field.type_.__name__].__name__)
-                )
-            ret_dict_args.append(
-                ret_dict_arg_template.format(name, field.name)
-                )
+                and field.type_.__name__ in filter_type_mapping):
+            typ = filter_type_mapping[field.type_.__name__]
+            annotation = Annotated[
+                Union[List[typ], None],
+                Query(description=f'{name} filter query parameter')
+                ]
+            value = None 
+            args_list.append((name, annotation, value))
     if args_list:
-        args_str = ", ".join(args_list)
-        ret_dict_args_str = ", ".join(ret_dict_args)
-
-        filter_func_src = textwrap.dedent(f"""
-            def filter_func({args_str}) -> FILTER:
-                ret = dict({ret_dict_args_str})
-                return {{k:v for k, v in ret.items() if v is not None}}
-            """).strip("\n")
-        exec(filter_func_src, globals(), locals())
-        _filter_func = locals().get("filter_func")
-        return _filter_func
+        filter_params_cls = dataclasses.make_dataclass(
+            'QueryParams', args_list)
+        return filter_params_cls
     else:
         return None
 
@@ -142,11 +130,7 @@ class FilteringSQLAlchemyCRUDRouter(SQLAlchemyCRUDRouter):
         # We will make use of it when defining the route() inner function in
         # the _get_all method - FastAPI injects the dependency for us when
         # invoking it.
-        query_dependency = query_factory(schema, query_params)
-        if query_dependency is None:
-            self.filter = Depends(lambda: {})
-        else:
-            self.filter = Depends(query_dependency)
+        self.filter_params_cls = query_factory(schema, query_params)
 
         super().__init__(
             schema=schema,
@@ -193,22 +177,45 @@ class FilteringSQLAlchemyCRUDRouter(SQLAlchemyCRUDRouter):
 
     # Override the base class method to hook our filter query params in.
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
+        Filter = self.filter_params_cls
+        if Filter is None:
+            def route(
+                    db: Session = Depends(self.db_func),
+                    pagination: PAGINATION = self.pagination,
+                    ) -> List[Model]:
+                skip, limit = pagination.get("skip"), pagination.get("limit")
 
-        def route(
-                db: Session = Depends(self.db_func),
-                pagination: PAGINATION = self.pagination,
-                filter_: FILTER = self.filter
-                ) -> List[Model]:
-            skip, limit = pagination.get("skip"), pagination.get("limit")
+                db_model = self.db_model
+                db_models: List[Model] = (
+                    db.query(self.db_model)
+                    .order_by(getattr(self.db_model, self._pk))
+                    .limit(limit)
+                    .offset(skip)
+                    .all()
+                )
+                return db_models
+        else:
+            def route(
+                    db: Session = Depends(self.db_func),
+                    pagination: PAGINATION = self.pagination,
+                    filter_: Filter = Depends(Filter)
+                    ) -> List[Model]:
+                skip, limit = pagination.get("skip"), pagination.get("limit")
 
-            db_models: List[Model] = (
-                db.query(self.db_model)
-                .filter_by(**filter_)
-                .order_by(getattr(self.db_model, self._pk))
-                .limit(limit)
-                .offset(skip)
-                .all()
-            )
-            return db_models
+                db_model = self.db_model
+                filter_expression = and_(
+                    getattr(db_model, name).in_(values)
+                    for name, values in dataclasses.asdict(filter_).items()
+                    if values
+                    )
+                db_models: List[Model] = (
+                    db.query(self.db_model)
+                    .filter(filter_expression)
+                    .order_by(getattr(self.db_model, self._pk))
+                    .limit(limit)
+                    .offset(skip)
+                    .all()
+                )
+                return db_models
 
         return route
