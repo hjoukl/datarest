@@ -26,7 +26,9 @@ custom_routes_status = {
 
 
 def status_code(http_code: int = status.HTTP_200_OK):
-
+    """Dependency function factory: Return a callable that takes a Response arg
+    and sets the response status.
+    """
     def resp_status_code(response: Response):
         response.status_code = http_code
         return response
