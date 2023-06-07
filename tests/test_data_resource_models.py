@@ -23,7 +23,7 @@ def schema():
 #checkt that a model has been generated from a given schema
 def test_create_model_from_tableschema(schema):
     (id_columns, model) = create_model_from_tableschema('TestModel', schema)
-    breakpoint()
+    
     # Check that id_columns tuple contains the expected values
     assert isinstance(id_columns, tuple)
     assert len(id_columns) == 1

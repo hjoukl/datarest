@@ -7,10 +7,9 @@
 
 import pytest
 from typing import Optional
-
 from sqlmodel import Field, Session, SQLModel, create_engine
 
-from datarest._sqlmodel_ext import create_model
+from datarest._sqlmodel_ext import create_model, ConfigError, Type
 from sqlmodel.main import default_registry
 
 
@@ -29,19 +28,19 @@ def test_create_model(clear_sqlmodel):
     """
     Test dynamic model creation, query, and deletion
     """
+    field_definitions = {
+        "id": (Optional[int], Field(default=None, primary_key=True)),
+        "name": str,
+        "secret_name": (str,),  # test 1-tuple
+        "age": (Optional[int], None),
+    }
 
     hero = create_model(
-        "Hero",
-        {
-            "id": (Optional[int], Field(default=None, primary_key=True)),
-            "name": str,
-            "secret_name": (str,),  # test 1-tuple
-            "age": (Optional[int], None),
-        },
-        table=True
+        "Hero", 
+        **field_definitions, table=True
     )
 
-    hero_1 = hero(**{"name": "Deadpond", "secret_name": "Dive Wilson"})
+    hero_1 = hero(**{"name": "Deadpond", "secret_name": "Dive Wilson"}), breakpoint()
 
     engine = create_engine("sqlite://")
 
@@ -67,5 +66,28 @@ def test_create_model(clear_sqlmodel):
         query_hero = session.query(hero).first()
         assert not query_hero
 
+@pytest.mark.skip
+def test_create_model_1():
+    field_definitions_2 = {
+        "name": str,
+        "age": (int, 0),
+        "email": (str, Field(nullable=False)),
+    }
+
+    model = create_model("TestModel", **field_definitions_2, table=True), breakpoint()
+    #assert isinstance(model, Type[SQLModel])
+    assert "name" in model.__annotations__
+    assert "age" in model.__annotations__
+    assert "email" in model.__annotations__
+    assert "name" in model.__dict__
+    assert "age" in model.__dict__
+    assert "email" in model.__dict__
+    assert isinstance(model.__dict__["name"], Field)
+    assert isinstance(model.__dict__["age"], Field)
+    assert isinstance(model.__dict__["email"], Field)
+
+
+    with pytest.raises(ConfigError):
+        create_model("InvalidModel", **{"_invalid_field": str})
 
 # Testoutput: FAILED test_sqlmodel_ext.py::test_create_model - TypeError: create_model() takes 1 positional argument but 2 were given

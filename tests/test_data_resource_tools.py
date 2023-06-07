@@ -1,7 +1,7 @@
 import pytest
 from frictionless import Schema, Resource, fields, describe, steps, transform, Pipeline
 
-from datarest._data_resource_tools import add_attr, add_descriptions, add_examples,  identifier_field_name, normalize_field_names, composite_id_step
+from datarest._data_resource_tools import add_attr, add_descriptions, add_examples,  identifier_field_name, composite_id_step
 from datarest.cli import _dict_from
 from datarest._resource_ids import IdEnum, id_type_funcs
 
@@ -102,7 +102,9 @@ def test_add_descriptions():
     assert("description", "This is field 1") in test_description_1.items()
     assert("description", "This is field 2") in test_description_2.items()
 
-
+# TO-DO:
+# - es scheinen keine examples mehr hinzugefügt worden zu sein
+# - test_resource enthält example-attribut nicht mehr
 def test_add_examples():
 
     data = [["name", "age", "city"],
@@ -110,11 +112,12 @@ def test_add_examples():
         ["Vivienne", 36, "München"]]
     
     test_resource = describe(data)
-    add_examples(test_resource)
+    add_examples(test_resource), breakpoint()
     
     test_example_1 = test_resource.schema.get_field("name").to_dict()
     test_example_2 = test_resource.schema.get_field("age").to_dict()
     test_example_3 = test_resource.schema.get_field("city").to_dict()
+    breakpoint()
 
     assert("example", "Patrick") in test_example_1.items()
     assert("example", 28) in test_example_2.items()
@@ -163,7 +166,4 @@ def test_composite_id_step():
     # breakpoint()
     # ????
 
-
-if __name__=="__main__":
-    test_add_attr_empty_attribute()
 
