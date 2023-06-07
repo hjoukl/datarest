@@ -1,3 +1,5 @@
+from typing import Optional
+
 import frictionless
 from sqlmodel import Field
 
@@ -5,6 +7,7 @@ from . import _sqlmodel_ext
 from . import _resource_ids
 
 
+# Map tableschema type names to Python types.
 tableschema_type_map = {
     'date': str,
     'string': str,
@@ -41,8 +44,10 @@ def create_model_from_tableschema(model_name, schema):
     for field_def in schema.fields:
         name = field_def.name
         typ = tableschema_type_map[field_def.type]
-        # optional
         primary_key = True if name in id_columns else False
+        # SQLModel uses Optional type annotations for nullability
+        if not field_def.required and not primary_key:
+            typ = Optional[typ]
         description = field_def.description
         example = field_def.example
         sa_column_kwargs = {}

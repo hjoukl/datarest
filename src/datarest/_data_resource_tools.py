@@ -1,14 +1,13 @@
-# support for different resource IDs
+# Support for adding and modifying resource schema and field metadata.
+# Custom transformation steps for adding resource IDs.
 
 import enum
+import functools
 import re
 
 import frictionless
 
-from ._resource_ids import (
-    IdEnum,
-    id_type_funcs,
-    )
+from ._resource_ids import IdEnum, id_type_funcs
 
 
 def add_attr(resource, attr_name, **field_attrs):
@@ -34,10 +33,8 @@ def add_examples(resource):
     """Read 1st data row and use its values as schema field examples.
     """
     # get the 1st row as data example
-    example_row = next(resource.extract(stream=True))
-    # dict-unpacking doesn't reliably work with Row objects, see
-    # https://github.com/frictionlessdata/frictionless-py/issues/1152
-    resource = add_attr(resource, attr_name='example', **example_row.to_dict())
+    example_row = resource.extract(limit_rows=1)
+    resource = add_attr(resource, attr_name='example', **example_row)
     return resource
 
 
@@ -52,31 +49,49 @@ def identifier_field_name(name, prefix='f_'):
     return name
 
 
-def normalize_field_names(resource, prefix='f_'):
-    """Normalize resource header field names to valid identifiers.
+def field_name_normalizer(prefix='f_'):
+    """Field name normalizer factory.
+
+    Returns a callable that takes a field and normalizes its field name to a
+    valid identifier.
+    """
+    def normalize_name(field):
+        field.name = identifier_field_name(field.name, prefix=prefix)
+
+    return normalize_name
+
+
+def field_type_mapper(**type_map):
+    """Field type map factory.
+
+    Returns a type modifier callable that expects a tableschema field and 
+    substitutes its type name, looked up in type_map.
+    """
+    def modify_type(field):
+        # Default to original type, if no map given.
+        new_type = type_map.get(field.type, field.type)
+        field.schema.set_field_type(field.name, new_type)
+
+    return modify_type
+
+
+def modify_resource_fields(resource, *modifiers):
+    """Loop over resource.schema.fields and modify field properties with
+    given modifiers.
+
+    Returns the (in-place) modified resource.
+
+    E.g.
+        resource = modifiy_resource_fields(
+            resource,
+            field_name_normalizer(),
+            field_type_mapper(any='string')
+            )
     """
     for field in resource.schema.fields:
-        field.name = identifier_field_name(field.name)
+        for modify in modifiers:
+            modify(field)
     return resource
-
-
-def normalize_headers_step(prefix='f_'):
-    """Normalize resource header field names to valid identifiers.
-
-    Custom frictionless transform step.
-
-    Parameters:
-        prefix: Add prefix to field names that start with a numeric character
-            after character substitution.
-    """
-
-    def step(resource):
-        # a frictionless resource transform step to normalize headers
-        current = resource.to_copy()
-        # Meta
-        resource.data = current.data
-        normalize_field_names(resource, prefix=prefix)
-        return step
 
 
 def composite_id_step(
@@ -87,13 +102,13 @@ def composite_id_step(
         id_field_name='id_',
         concat_sep='.'
     ):
-    """Create a resource transform step using the provided id_ generation
-    callable.
-
-    Custom frictionless transform step.
+    """Return a custom frictionless resource transform step that uses the
+    provided id_ generation callable to derive a unique key from a composite
+    natural/biz key.
 
     Parameters:
-        id_: a callable id_(*fields, concat_sep) to generate a unique ID
+        id_: a callable with signature id_(*fields, concat_sep) to generate a
+            unique ID from the composite primary key fields.
         id_type: a _resource_ids.IdEnum
         primary_key: the natural/biz primary key field tuple
         field_names: the table schema field names list
@@ -144,6 +159,11 @@ def composite_id_step(
     return _composite_id_step
 
 
+# These ID types do not use business keys i.e. existing field data but
+# generated unique IDs (UUID, GUID).
+non_biz_id_types = set([IdEnum.uuid4_base64])
+
+
 def primary_key_step(
         resource,
         id_type: IdEnum,
@@ -157,8 +177,11 @@ def primary_key_step(
     """
     fields = resource.schema.fields
     field_names = resource.schema.field_names
-    if not primary_key:
+
+    # Default to 1st column for biz keys if no primary key field name given.
+    if id_type not in non_biz_id_types and not primary_key:
         primary_key = (fields[0].name, )
+
     primary_key_set = set(primary_key)
     if not primary_key_set <= set(field_names):
         raise ValueError(
