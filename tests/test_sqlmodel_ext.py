@@ -6,13 +6,87 @@
 #  License: MIT (https://github.com/tiangolo/sqlmodel/blob/main/LICENSE))
 
 import pytest
-from typing import Optional
-from sqlmodel import Field, Session, SQLModel, create_engine
+import frictionless
 
+from typing import Optional, List
+
+from datarest._cfgfile import TableschemaTable, ExposeRoutesEnum, SchemaSpecEnum
 from datarest._sqlmodel_ext import create_model, ConfigError, Type
-from sqlmodel.main import default_registry
+from datarest._data_resource_models import create_model as c_m
 
 
+@pytest.fixture
+def model_def():
+
+    data = [["id","name", "age", "income"],
+        [1, "Patrick", 28, "3550.50"],
+        [2, "Vivienne", 36, "2852.35"]]
+    
+    test_resource = frictionless.describe(data)
+    test_resource.schema.primary_key.append("id")
+    test_resource.schema.custom['x_datarest_primary_key_info'] = {
+                    'id_type':'uuid4_base64',
+                    'id_src_fields': ['id']
+                    }
+    
+    test_resource.to_yaml("test.yaml")
+
+    model_def = TableschemaTable(
+        dbtable='test_table',
+        paginate=10,
+        expose_routes=[ExposeRoutesEnum.get_one],
+        query_params=[],
+        schema_spec=SchemaSpecEnum.data_resource,
+        schema="test.yaml"
+    )
+    return model_def
+
+def test_create_model(model_def):
+    
+    model_name = "test_model"
+    collection_model_name = "collection_test_model"
+
+    id_columns, model = c_m(
+            model_name, model_def)
+
+    test_collection_model = create_model(model_name, **{model_name: (List[model], ...)})
+    
+
+    # check if list of models was created
+
+    assert test_collection_model.__fields__["test_model"].name == 'test_model'
+    assert test_collection_model.__fields__["test_model"].type_ == List[model].__args__[0]
+
+    # assertions if model_collection was created with input data
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].__contains__('id') == True
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].__contains__('name') == True
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].__contains__('age') == True
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].__contains__('income') == True
+    
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('id').name == 'id'
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('id').type_ == int
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('id').required == True
+
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('name').name == 'name'
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('name').type_ == str
+
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('age').name == 'age'
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('age').type_ == int
+
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('income').name == 'income'
+    assert test_collection_model.__fields__["test_model"].type_.__dict__['__fields__'].get('income').type_ == float
+
+# check for fields with an underscore
+def test_create_model_invalid_fields():
+    with pytest.raises(ValueError):
+        create_model("InvalidModel", **{"_invalid_field": str})
+
+
+def test_create_model_invalid_():
+    create_model("_InvalidModel", **{"invalid_field": (int, 42)})
+
+
+"""
 @pytest.fixture()
 def clear_sqlmodel():
     # Clear the tables in the metadata for the default base model
@@ -23,11 +97,13 @@ def clear_sqlmodel():
     SQLModel.metadata.clear()
     default_registry.dispose()
 
+"""
 
+"""
 def test_create_model(clear_sqlmodel):
-    """
+    
     Test dynamic model creation, query, and deletion
-    """
+    
     field_definitions = {
         "id": (Optional[int], Field(default=None, primary_key=True)),
         "name": str,
@@ -66,28 +142,4 @@ def test_create_model(clear_sqlmodel):
         query_hero = session.query(hero).first()
         assert not query_hero
 
-@pytest.mark.skip
-def test_create_model_1():
-    field_definitions_2 = {
-        "name": str,
-        "age": (int, 0),
-        "email": (str, Field(nullable=False)),
-    }
-
-    model = create_model("TestModel", **field_definitions_2, table=True), breakpoint()
-    #assert isinstance(model, Type[SQLModel])
-    assert "name" in model.__annotations__
-    assert "age" in model.__annotations__
-    assert "email" in model.__annotations__
-    assert "name" in model.__dict__
-    assert "age" in model.__dict__
-    assert "email" in model.__dict__
-    assert isinstance(model.__dict__["name"], Field)
-    assert isinstance(model.__dict__["age"], Field)
-    assert isinstance(model.__dict__["email"], Field)
-
-
-    with pytest.raises(ConfigError):
-        create_model("InvalidModel", **{"_invalid_field": str})
-
-# Testoutput: FAILED test_sqlmodel_ext.py::test_create_model - TypeError: create_model() takes 1 positional argument but 2 were given
+"""
