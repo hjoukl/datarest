@@ -8,10 +8,10 @@
 import pytest
 import frictionless
 
-from typing import Optional, List
+from typing import List
 
 from datarest._cfgfile import TableschemaTable, ExposeRoutesEnum, SchemaSpecEnum
-from datarest._sqlmodel_ext import create_model, ConfigError, Type
+from datarest._sqlmodel_ext import create_model
 from datarest._data_resource_models import create_model as c_m
 
 
@@ -82,8 +82,9 @@ def test_create_model_invalid_fields():
         create_model("InvalidModel", **{"_invalid_field": str})
 
 
-def test_create_model_invalid_():
-    create_model("_InvalidModel", **{"invalid_field": (int, 42)})
+def test_create_model_invalid_model_name():
+    with pytest.raises(TypeError):
+        create_model(55 , **{"valid_field": str})
 
 
 """
