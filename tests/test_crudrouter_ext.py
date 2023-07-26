@@ -5,34 +5,72 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from fastapi_crudrouter.core.sqlalchemy import SCHEMA
+
 from datarest._crudrouter_ext import FilteringSQLAlchemyCRUDRouter, query_factory
-#from models import Base, Item
+from datarest._data_resource_models import create_model_from_tableschema
+
+# global variable
+generated_model = None
 
 @pytest.fixture
-def schema():
+def model():
+
+    global generated_model
+    if generated_model is not None:
+        return generated_model
 
     data = [["id","name", "age", "income"],
         [1, "Patrick", 28, "3550.50"],
         [2, "Vivienne", 36, "2852.35"]]
     
     test_resource = frictionless.describe(data)
-    
-    return test_resource.schema
+    test_resource.schema.primary_key.append("id")
+    test_resource.schema.custom['x_datarest_primary_key_info'] = {
+                    'id_type':'uuid4_base64',
+                    'id_src_fields': ['id']
+                    }
+    (id_columns, model) = create_model_from_tableschema('TestModel', test_resource.schema)
+
+    # store model in global varibale
+    generated_model = model
+
+    return model
+
 
 @pytest.fixture
 def query_params():
-    query_params = ["id", "name"]
+    query_params = ['name', 'age']
 
     return query_params
 
-def test_query_factory(schema, query_params):
-    # Test that the function returns the expected query for a given filter
-    breakpoint()
-    query = query_factory(Type(schema), query_params)
 
-    # query-factory wird kein "normales" schema übergeben -> schema: Type[SCHEMA]
-        # wie lässt sich das auf gerneric schema übertragen?
+# check if query_params are set
+def test_query_factory(model, query_params):
+
+        query = query_factory(model, query_params)
+
+        assert query is not None
+        assert hasattr(query, 'age') == True
+        assert hasattr(query, 'name') == True
+
+
+# no query_params are given
+def test_query_factory_empty_params(model):
+
+    query = query_factory(model)
+    assert query is None
+
+
+# invalid field as query_param -> TO-DO: Add Exception-Handling when a query-parameter doesn't exist in the dataset
+@pytest.mark.skip
+def test_query_factory_invalid_query_params(model):
+
+    invalid_params = ['invalid_field', 'age']
+    query = query_factory(model, invalid_params)
+    breakpoint()
     
+    assert query is None
     
 
 """
