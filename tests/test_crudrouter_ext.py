@@ -1,17 +1,38 @@
 import pytest
 import frictionless
-from typing import Type
+from pydantic import Field
+from typing import Type, List
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from fastapi_crudrouter.core.sqlalchemy import SCHEMA
 
 from datarest._crudrouter_ext import FilteringSQLAlchemyCRUDRouter, query_factory
 from datarest._data_resource_models import create_model_from_tableschema
 
+# 
+Base = declarative_base()
+
+class MyModel(Base):
+    __tablename__ = "testmodel"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String)
+    age = Column(Integer)
+    income = Column(Float)
+
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+Base.metadata.create_all(bind=engine)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+app = FastAPI()
+
 # global variable
 generated_model = None
+
 
 @pytest.fixture
 def model():
@@ -44,6 +65,20 @@ def query_params():
 
     return query_params
 
+@pytest.fixture
+def router(model, query_params):
+
+    router = FilteringSQLAlchemyCRUDRouter(
+    schema=model,
+    db_model=MyModel,
+    db=TestingSessionLocal,
+    query_params=query_params,
+    response_model_exclude_none=True,
+)
+    return router
+
+
+
 
 # check if query_params are set
 def test_query_factory(model, query_params):
@@ -68,10 +103,16 @@ def test_query_factory_invalid_query_params(model):
 
     invalid_params = ['invalid_field', 'age']
     query = query_factory(model, invalid_params)
-    breakpoint()
     
     assert query is None
-    
+
+
+def test_filtering_sqlalchemy_crud_router(router):
+
+    app.include_router(router)
+    client = TestClient(app)
+
+
 
 """
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
