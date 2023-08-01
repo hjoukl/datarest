@@ -112,6 +112,9 @@ def test_filtering_sqlalchemy_crud_router(router):
     app.include_router(router)
     client = TestClient(app)
 
+    breakpoint()
+
+
 
 
 """

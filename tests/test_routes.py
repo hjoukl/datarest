@@ -8,8 +8,15 @@ from datarest._cfgfile import TableschemaTable, ExposeRoutesEnum, SchemaSpecEnum
 
 from datarest._models import create_models, ModelCombo
 
+# global variable
+generated_model_def = None
+
 @pytest.fixture
 def models_def():
+
+    global generated_model_def
+    if generated_model_def is not None:
+        return generated_model_def
 
     # generate a test-model object and return it so that other test functions may use it
     data = [["id","name", "age", "income"],
@@ -36,6 +43,9 @@ def models_def():
 
     datatables = Datatables(__root__={"test_table": model_def})
     models_def = create_models(datatables)
+
+    # store model in global varibale
+    generated_model_def = models_def
 
     return models_def
 
@@ -75,7 +85,7 @@ def app_def():
 
     return app_def
 
-@pytest.mark.skip
+
 def test_create_routes_default_routes(models_def, app_def, app_config_def):
 
     try:
@@ -92,7 +102,6 @@ def test_create_routes_default_routes(models_def, app_def, app_config_def):
     finally:
         os.remove("test.yaml")
         os.remove("app.yaml")
-        del models_def, app_def, app_config_def
 
 
 def test_create_routes_multiple_routes(models_def, app_def, app_config_def):
@@ -130,6 +139,32 @@ def test_create_routes_multiple_routes(models_def, app_def, app_config_def):
 
         create_routes(app_def, models_def)
 
+        api_routes = [route for route in app_def.routes if isinstance(route, APIRoute)]
+
+         # Assertion 1: Check if the path and methods of the custom "get_one" route are correct
+        get_one_route = next(route for route in api_routes if route.path == '/table1/{item_id}' and "GET" in route.methods)
+        assert get_one_route is not None
+
+        # Assertion 2: Check if the path and methods of the custom "create" route are correct
+        create_route = next(route for route in api_routes if route.path == '/table1' and "POST" in route.methods)
+        assert create_route is not None
+
+        # Assertion 3: Check if the path and methods of the custom "delete_all" route are correct
+        delete_all_route = next(route for route in api_routes if route.path == '/table1' and "DELETE" in route.methods)
+        assert delete_all_route is not None
+
+        # Assertion 4: Check if the path and methods of the custom "delete_one" route are correct
+        delete_one_route = next(route for route in api_routes if route.path == '/table1/{item_id}' and "DELETE" in route.methods)
+        assert delete_one_route is not None
+
+        # Assertion 5: Check if the path and methods of the custom "get_all" route are correct
+        get_all_route = next(route for route in api_routes if route.path == '/table1' and "GET" in route.methods)
+        assert get_all_route is not None
+
+        # Assertion 6: Check if the path and methods of the custom "update" route are correct
+        update_route = next(route for route in api_routes if route.path == '/table1/{item_id}' and "PUT" in route.methods)
+        assert update_route is not None
+
+
     finally:
-        os.remove("test.yaml")
         os.remove("app.yaml")
