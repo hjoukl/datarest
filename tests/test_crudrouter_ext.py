@@ -12,27 +12,8 @@ from fastapi_crudrouter.core.sqlalchemy import SCHEMA
 from datarest._crudrouter_ext import FilteringSQLAlchemyCRUDRouter, query_factory
 from datarest._data_resource_models import create_model_from_tableschema
 
-# 
-Base = declarative_base()
-
-class MyModel(Base):
-    __tablename__ = "testmodel"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String)
-    age = Column(Integer)
-    income = Column(Float)
-
-
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-Base.metadata.create_all(bind=engine)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-app = FastAPI()
-
 # global variable
 generated_model = None
-
 
 @pytest.fixture
 def model():
@@ -58,7 +39,6 @@ def model():
 
     return model
 
-
 @pytest.fixture
 def query_params():
     query_params = ['name', 'age']
@@ -78,16 +58,14 @@ def router(model, query_params):
     return router
 
 
-
-
 # check if query_params are set
 def test_query_factory(model, query_params):
 
-        query = query_factory(model, query_params)
+    query = query_factory(model, query_params)
 
-        assert query is not None
-        assert hasattr(query, 'age') == True
-        assert hasattr(query, 'name') == True
+    assert query is not None
+    assert hasattr(query, 'age') == True
+    assert hasattr(query, 'name') == True
 
 
 # no query_params are given
@@ -109,87 +87,54 @@ def test_query_factory_invalid_query_params(model):
 
 def test_filtering_sqlalchemy_crud_router(router):
 
+    # check if query_params are set accordingly
+    assert 'name' in router.filter_params_cls.__dict__.keys()
+    assert 'age' in router.filter_params_cls.__dict__.keys()
+
+    assert router.response_model_exclude_none is True
+
+
+    # TO-DO: Check responses from server
+
+    """
+    Base = declarative_base()
+
+    class MyModel(Base):
+        __tablename__ = "testmodel"
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+        age = Column(Integer)
+        income = Column(Float)
+
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    Base.metadata.create_all(bind=engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    app = FastAPI()
+
+
     app.include_router(router)
     client = TestClient(app)
 
-    breakpoint()
+    # test get_all method
+    with TestingSessionLocal() as session:
 
+        # Test data
+        data = [
+            MyModel(name="Patrick", age=28, income="3550.50"),
+            MyModel(name="Vivienne", age=36, income="2852.35"),
+        ]
+        
+        session.add_all(data)
+        session.commit()
 
+        url = "/testmodel/"
+        response = client.get(url)
 
+        breakpoint()
 
-"""
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine
-)
-
-
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app = FastAPI()
-
-app.include_router(
-    FilteringSQLAlchemyCRUDRouter(
-        schema=Item,
-        db_model=Item,
-        db=TestingSessionLocal(),
-        query_params=["name", "description", "price"],
-        prefix="/items",
-        tags=["items"],
-    )
-)
-
-
-client = TestClient(app)
-
-
-def test_create_item():
-    item_data = {"name": "test", "description": "testing", "price": 1.0}
-    response = client.post("/items/", json=item_data)
-    assert response.status_code == 201
-    item = response.json()
-    assert "id" in item
-    for key in item_data:
-        assert item_data[key] == item[key]
-
-
-def test_get_all_items():
-    response = client.get("/items/")
-    assert response.status_code == 200
-    items = response.json()
-    assert len(items) == 1
-
-
-def test_get_item():
-    response = client.get("/items/1")
-    assert response.status_code == 200
-    item = response.json()
-    assert item["name"] == "test"
-
-
-def test_update_item():
-    item_data = {"name": "updated", "description": "updated", "price": 2.0}
-    response = client.put("/items/1", json=item_data)
-    assert response.status_code == 200
-    item = response.json()
-    for key in item_data:
-        assert item_data[key] == item[key]
-
-
-def test_delete_item():
-    response = client.delete("/items/1")
-    assert response.status_code == 204
-    response = client.get("/items/1")
-    assert response.status_code == 404
-
-"""
+        assert response.status_code == 200
+        results = response.json()
+        assert len(results) == len(data)
+    """
