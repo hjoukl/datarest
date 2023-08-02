@@ -141,28 +141,28 @@ def test_create_routes_multiple_routes(models_def, app_def, app_config_def):
 
         api_routes = [route for route in app_def.routes if isinstance(route, APIRoute)]
 
-         # Assertion 1: Check if the path and methods of the custom "get_one" route are correct
-        get_one_route = next(route for route in api_routes if route.path == '/table1/{item_id}' and "GET" in route.methods)
+         # Check if the path and methods of the "get_one" route are correct
+        get_one_route = next(route for route in api_routes if route.path == '/test_table/{item_id}' and "GET" in route.methods)
         assert get_one_route is not None
 
-        # Assertion 2: Check if the path and methods of the custom "create" route are correct
-        create_route = next(route for route in api_routes if route.path == '/table1' and "POST" in route.methods)
+        # Check if the path and methods of the "create" route are correct
+        create_route = next(route for route in api_routes if route.path == '/test_table' and "POST" in route.methods)
         assert create_route is not None
 
-        # Assertion 3: Check if the path and methods of the custom "delete_all" route are correct
-        delete_all_route = next(route for route in api_routes if route.path == '/table1' and "DELETE" in route.methods)
+        # Check if the path and methods of the "delete_all" route are correct
+        delete_all_route = next(route for route in api_routes if route.path == '/test_table' and "DELETE" in route.methods)
         assert delete_all_route is not None
 
-        # Assertion 4: Check if the path and methods of the custom "delete_one" route are correct
-        delete_one_route = next(route for route in api_routes if route.path == '/table1/{item_id}' and "DELETE" in route.methods)
+        # Check if the path and methods of the "delete_one" route are correct
+        delete_one_route = next(route for route in api_routes if route.path == '/test_table/{item_id}' and "DELETE" in route.methods)
         assert delete_one_route is not None
 
-        # Assertion 5: Check if the path and methods of the custom "get_all" route are correct
-        get_all_route = next(route for route in api_routes if route.path == '/table1' and "GET" in route.methods)
+        # Check if the path and methods of the  "get_all" route are correct
+        get_all_route = next(route for route in api_routes if route.path == '/test_table' and "GET" in route.methods)
         assert get_all_route is not None
 
-        # Assertion 6: Check if the path and methods of the custom "update" route are correct
-        update_route = next(route for route in api_routes if route.path == '/table1/{item_id}' and "PUT" in route.methods)
+        # Check if the path and methods of the "update" route are correct
+        update_route = next(route for route in api_routes if route.path == '/test_table/{item_id}' and "PUT" in route.methods)
         assert update_route is not None
 
 
