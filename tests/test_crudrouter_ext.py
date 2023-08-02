@@ -8,12 +8,27 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
 from fastapi_crudrouter.core.sqlalchemy import SCHEMA
 
 from datarest._crudrouter_ext import FilteringSQLAlchemyCRUDRouter, query_factory
 from datarest._data_resource_models import create_model_from_tableschema
 
+Base = declarative_base()
 
+class MyModel(Base):
+    __tablename__ = "testmodel"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    age = Column(Integer)
+    income = Column(Float)
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SQLModel.metadata.create_all(bind=engine)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+app = FastAPI()
 
 
 # global variable
@@ -51,22 +66,6 @@ def query_params():
 
 @pytest.fixture
 def router(model, query_params):
-
-    Base = declarative_base()
-
-    class MyModel(Base):
-        __tablename__ = "testmodel"
-        id = Column(Integer, primary_key=True)
-        name = Column(String)
-        age = Column(Integer)
-        income = Column(Float)
-
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
-    Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    app = FastAPI()
 
     router = FilteringSQLAlchemyCRUDRouter(
     schema=model,
@@ -114,34 +113,28 @@ def test_filtering_sqlalchemy_crud_router(router):
 
         assert router.response_model_exclude_none is True
 
+        # TO-DO: Check responses from server
+        app.include_router(router)
+        client = TestClient(app)
+
+        # test get_all method
+        with TestingSessionLocal() as session:
+
+            # Test data
+            data = [
+            ]
+            
+            session.add_all(data)
+            session.commit()
+
+            url = "/testmodel/"
+            response = client.get(url)
+
+            breakpoint()
+
+            assert response.status_code == 200
+            results = response.json()
+            assert len(results) == len(data)
+    
     finally:
         os.remove("test.db")
-
-
-    # TO-DO: Check responses from server
-
-    """
-    app.include_router(router)
-    client = TestClient(app)
-
-    # test get_all method
-    with TestingSessionLocal() as session:
-
-        # Test data
-        data = [
-            MyModel(name="Patrick", age=28, income="3550.50"),
-            MyModel(name="Vivienne", age=36, income="2852.35"),
-        ]
-        
-        session.add_all(data)
-        session.commit()
-
-        url = "/testmodel/"
-        response = client.get(url)
-
-        breakpoint()
-
-        assert response.status_code == 200
-        results = response.json()
-        assert len(results) == len(data)
-    """
