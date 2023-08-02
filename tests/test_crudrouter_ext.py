@@ -1,5 +1,6 @@
 import pytest
 import frictionless
+import os
 from pydantic import Field
 from typing import Type, List
 from fastapi import FastAPI
@@ -11,6 +12,9 @@ from fastapi_crudrouter.core.sqlalchemy import SCHEMA
 
 from datarest._crudrouter_ext import FilteringSQLAlchemyCRUDRouter, query_factory
 from datarest._data_resource_models import create_model_from_tableschema
+
+
+
 
 # global variable
 generated_model = None
@@ -47,6 +51,22 @@ def query_params():
 
 @pytest.fixture
 def router(model, query_params):
+
+    Base = declarative_base()
+
+    class MyModel(Base):
+        __tablename__ = "testmodel"
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+        age = Column(Integer)
+        income = Column(Float)
+
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    Base.metadata.create_all(bind=engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    app = FastAPI()
 
     router = FilteringSQLAlchemyCRUDRouter(
     schema=model,
@@ -87,33 +107,20 @@ def test_query_factory_invalid_query_params(model):
 
 def test_filtering_sqlalchemy_crud_router(router):
 
-    # check if query_params are set accordingly
-    assert 'name' in router.filter_params_cls.__dict__.keys()
-    assert 'age' in router.filter_params_cls.__dict__.keys()
+    try:
+        # check if query_params are set accordingly
+        assert 'name' in router.filter_params_cls.__dict__.keys()
+        assert 'age' in router.filter_params_cls.__dict__.keys()
 
-    assert router.response_model_exclude_none is True
+        assert router.response_model_exclude_none is True
+
+    finally:
+        os.remove("test.db")
 
 
     # TO-DO: Check responses from server
 
     """
-    Base = declarative_base()
-
-    class MyModel(Base):
-        __tablename__ = "testmodel"
-        id = Column(Integer, primary_key=True)
-        name = Column(String)
-        age = Column(Integer)
-        income = Column(Float)
-
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
-    Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    app = FastAPI()
-
-
     app.include_router(router)
     client = TestClient(app)
 
