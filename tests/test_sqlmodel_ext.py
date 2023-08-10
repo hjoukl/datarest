@@ -50,7 +50,6 @@ def test_create_model(model_def):
             model_name, model_def)
 
     test_collection_model = create_model(model_name, **{model_name: (List[model], ...)})
-    
 
     # check if list of models was created
 
