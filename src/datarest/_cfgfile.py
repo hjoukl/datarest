@@ -1,6 +1,7 @@
 # The app configuration defined as a pydantic model, plus some helpers.
 
 import enum
+from pathlib import Path
 from typing import Dict, List, Optional, Union
 from typing_extensions import Annotated, Literal
 
@@ -11,9 +12,9 @@ from . import _yaml_tools
 
 
 class StrEnum(str, enum.Enum):
-    """String enum base class provide actual string value in str(...) output.
+    """String enum base class with actual string value in str(...) output.
 
-    Overrides the default IdEnum.xxx output of the Enum class.
+    Overrides the default 'IdEnum.xxx' output of the Enum class.
     """
 
     def __str__(self):
@@ -39,8 +40,17 @@ class ExposeRoutesEnum(StrEnum):
 class AuthnEnum(StrEnum):
     """Enumeration of authentication mechanisms.
     """
-    HTTPBasic_LDAP = 'HTTPBasic+LDAP'
-    OAuth2PasswordBearer_LDAP = 'OAuth2PasswordBearer+LDAP'
+    HTTPBasic = 'HTTPBasic'
+    OAuth2PasswordBearer = 'OAuth2PasswordBearer'
+
+
+@_yaml_tools.dump_as_str
+@enum.unique
+class AuthnBackendEnum(StrEnum):
+    """Enumeration of authn_backends.
+    """
+    LDAP = 'LDAP'
+
 
 
 @_yaml_tools.dump_as_str
@@ -109,23 +119,45 @@ class Datatables(BaseModel):
 
 class App(BaseModel):
     title: str
-    description: Optional[str] = ""
     version: str
+    prefix: Optional[str] = None
+    description: Optional[str] = '' 
 
 
-class LDAP(BaseModel):
+class HTTPBasicAuthn(BaseModel):
+    authn_type: Literal[AuthnEnum.HTTPBasic] = AuthnEnum.HTTPBasic
+
+
+class AsymmetricSecret(BaseModel):
+    public_key_path: str
+    private_key_path: str
+
+
+class SymmetricSecret(BaseModel):
+    secret: str
+
+
+class OAuth2PasswordBearerAuthn(BaseModel):
+    authn_type: Literal[AuthnEnum.OAuth2PasswordBearer] = \
+        AuthnEnum.OAuth2PasswordBearer
+    token_url: str = '/token'
+    access_token_expire_minutes: int = 15
+
+
+class LDAPAuthnBackend(BaseModel):
+    authn_backend_type: Literal[AuthnBackendEnum.LDAP] = AuthnBackendEnum.LDAP
     bind_dn: str
     server: str
 
 
 class Authn(BaseModel):
-    authn_type: AuthnEnum
-    ldap: Optional[LDAP] = None
+    authn: Union[HTTPBasicAuthn, OAuth2PasswordBearerAuthn]
+    authn_backend: LDAPAuthnBackend
 
 
 class Fastapi(BaseModel):
     app: App
-    authn: Optional[Authn] = None
+    authn: Union[Authn, None] = None
 
 
 class Database(BaseModel):
@@ -147,42 +179,55 @@ class AppConfig(BaseModel):
 def app_config(
         table,
         title=None,
-        description='',
         version='0.1.0',
+        prefix=None,
+        description='',
         connect_string="sqlite:///app.db",
         expose_routes=(ExposeRoutesEnum.get_one, ),
         query_params=(),
-        authn_type=None,
+        paginate=10,
+        authn=None,
+        authn_backend=None,
         ldap_bind_dn=None,
         ldap_server=None,
         ):
     """Return AppConfig object.
     """
-    title = table if title is None else title
+   
+    if prefix:
+        # Normalize prefix
+        prefix = '-'.join(prefix.lower().split()).strip('/')
+        prefix = f'/{prefix}'
 
-    authn = None
-    ldap = None
-    if authn_type is not None:
-        # Using or here catches a missing ldap attribute, at least
-        if ldap_bind_dn is not None or ldap_server is not None:
-            ldap = LDAP(
-                bind_dn=ldap_bind_dn,
-                server=ldap_server,
-                )
-        authn = Authn(
-            authn_type=authn_type,
-            ldap=ldap
-            )
-    # expose_routes = list(expose_routes)
+    expose_routes = list(expose_routes)
+
+    authn_model = None
+    if authn is not None:
+        authn_frontend_model = None
+        authn_backend_model = None
+
+        if authn == AuthnEnum.HTTPBasic:
+            authn_frontend_model = HTTPBasicAuthn()
+        elif authn == AuthnEnum.OAuth2PasswordBearer:
+            authn_frontend_model = OAuth2PasswordBearerAuthn()
+
+        if authn_backend == AuthnBackendEnum.LDAP:
+            authn_backend_model = LDAPAuthnBackend(
+                bind_dn=ldap_bind_dn, server=ldap_server)
+
+        authn_model = Authn(
+            authn=authn_frontend_model, authn_backend=authn_backend_model)
+
     config = AppConfig(
         datarest=Datarest(
             fastapi=Fastapi(
                 app=App(
-                    title=f"{title} API",
+                    title=title,
+                    prefix=prefix,
                     description=description,
                     version=version,
                     ),
-                authn=authn,
+                authn=authn_model,
                 ),
             database=Database(connect_string=connect_string, ),
             datatables=Datatables(
@@ -195,6 +240,7 @@ def app_config(
                         dbtable=table,
                         expose_routes=expose_routes,
                         query_params=query_params,
+                        paginate=paginate
                         )
                     }
                 ),
@@ -207,9 +253,11 @@ def write_app_config(cfg_path, app_config):
     """Write app.yaml config YAML string to cfg_path file.
     """
     app_config_yaml = yaml.safe_dump(
-        app_config.dict(by_alias=True, exclude_unset=True, exclude_none=True),
+        #app_config.dict(by_alias=True, exclude_unset=True, exclude_none=True),
+        app_config.dict(by_alias=True, exclude_none=True),
         default_flow_style=False,
-        sort_keys=False
+        allow_unicode=True,
+        sort_keys=False,
         )
     with open(cfg_path, encoding='utf-8', mode='w') as cfg_file:
         cfg_file.write(app_config_yaml)
@@ -223,4 +271,14 @@ def read_app_config(cfg_path='app.yaml'):
     with open(cfg_path, 'rb') as config_file:
         dct = yaml.safe_load(config_file)
         config = AppConfig.parse_obj(dct)
+
+    # If the description is a valid filename read description from there.
+    # TODO: This is a bit hacky, since rewriting this config object would now
+    # write the description text to app.yaml Do we care?
+    description = config.datarest.fastapi.app.description
+    if description and Path(description).is_file():
+        with open(description) as description_file:
+            description = description_file.read()
+
+    config.datarest.fastapi.app.description = description 
     return config

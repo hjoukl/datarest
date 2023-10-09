@@ -32,8 +32,10 @@ def add_descriptions(resource, **descriptions):
 def add_examples(resource):
     """Read 1st data row and use its values as schema field examples.
     """
-    # get the 1st row as data example
-    example_row = resource.extract(limit_rows=1)
+    # Get the 1st row as data example
+    # extract() returns a {resource_name: [{field_name: value, ...}, ...]}
+    # dictionary.
+    example_row = list(resource.extract(limit_rows=1).values())[0][0]
     resource = add_attr(resource, attr_name='example', **example_row)
     return resource
 
@@ -61,18 +63,39 @@ def field_name_normalizer(prefix='f_'):
     return normalize_name
 
 
-def field_type_mapper(**type_map):
+def field_type_mapper(type2type=None, name2type=None):
     """Field type map factory.
 
     Returns a type modifier callable that expects a tableschema field and 
     substitutes its type name, looked up in type_map.
     """
+    type2type = {} if type2type is None else type2type
+    name2type = {} if name2type is None else name2type
+
     def modify_type(field):
-        # Default to original type, if no map given.
-        new_type = type_map.get(field.type, field.type)
+        # Default to original type, if no mapping given.
+        # Type names modifications: map type name to type name, e.g.
+        # 'any' -> 'string'.
+        new_type = type2type.get(field.type, field.type)
+        # Type modifications for given field names: modify type name if field
+        # name in lookup table. 
+        new_type = name2type.get(field.name, new_type)
         field.schema.set_field_type(field.name, new_type)
 
     return modify_type
+
+
+def make_required(field_names):
+    """Make fields required.
+
+    Returns a field modifier that sets the 'required' constraint for fields
+    given in `field_names`.
+    """
+    def set_required_constraint(field):
+        if field.name in field_names:
+            field.required = True
+        field.schema.update_field(field.name, field.to_descriptor())
+    return set_required_constraint
 
 
 def modify_resource_fields(resource, *modifiers):

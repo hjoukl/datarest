@@ -1,3 +1,3 @@
-# sw_datarest package 
+# datarest package 
 
 from .version import __version__

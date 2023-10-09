@@ -69,6 +69,19 @@ def query_factory(
 
     Based on available fields in the model and the given query_params names
     to expose.
+
+    Returns:
+        A dataclass that provides the query/filter field names and type
+        annotations for all schema fields found in query_params:
+        
+            @dataclass
+            class QueryParams:
+                param_name: Annotated[Union[List[param_type], None],
+                                      Query(description='param name ...')]
+                ...
+
+        See FastAPI docs on using classes for (common) parameters. Returns None
+        if no schema fields names are in the query_params name list.
     """
     query_params = [] if query_params is None else query_params
 

@@ -18,7 +18,8 @@ ModelCombo = collections.namedtuple(
 
 
 def create_model(model_name, model_def):
-    """Dynamically create pydantic model from config model definition.
+    """Dynamically create SQLModel model (=pydantic + SQLAlchemy model) from
+    config model definition.
 
     FastAPI uses pydantic models to describe endpoint input/output data.
 
@@ -38,6 +39,8 @@ def create_model(model_name, model_def):
         # others in _sqlmodel_ext)
         id_columns, model = _data_resource_models.create_model(
             model_cls_name, model_def)
+        # **kwargs entries used here are:
+        #     model_name: (<type_annotation>, <default_value>)
         collection_model = _sqlmodel_ext.create_model(
             collection_model_cls_name, **{model_name: (List[model], ...)})
         return ModelCombo(

@@ -8,6 +8,7 @@ from typing import List, Optional
 
 import frictionless
 from frictionless import formats
+import yaml
 
 from . import _cfgfile
 from . import _models
@@ -15,11 +16,14 @@ from . import _yaml_tools
 from ._resource_ids import IdEnum
 from ._data_resource_tools import (
     add_descriptions, add_examples, modify_resource_fields,
-    field_name_normalizer, field_type_mapper, primary_key_step)
+    field_name_normalizer, field_type_mapper, make_required, primary_key_step)
 
 
-# Make Decimal objects work with pyyaml (needed for examples)
+# Make Decimal objects work with pyyaml (needed for examples).
 _yaml_tools.dump_decimal_as_str()
+# Add a selective str representer that uses YAML block style for strings with
+# newlines.
+_yaml_tools.set_selective_str_blockstyle(Dumper=yaml.SafeDumper)
 
 
 def _dict_from(colon_str_seq):
@@ -46,6 +50,11 @@ def cli():
     # Order is crucial: @app.command() incantations must come before callback
     # and the type-click-integration stuff, otherwise not both our and
     # uvicorn's commands are hooked properly
+    def authn_backend_callback(
+            ctx: typer.Context, param: typer.CallbackParam, value: str):
+        print(ctx, param, value)
+        return value
+
 
     # define our own exposed cli commands & params
     @init_app.command()
@@ -59,19 +68,35 @@ def cli():
                 'uuid4_base64', help='Type of resource ID to expose'),
             primary_key: List[str] = typer.Option(
                 [], help='Provide one or more primary key field(s)'),
+            required: List[str] = typer.Option(
+                [], help='Set one or more additionally required field(s), i.e.'
+                ' not marked as optional.'),
             query: List[str] = typer.Option(
                 [], help='Provide one or more field(s) eligible as query'
                 ' parameter'),
+            title: Optional[str] = typer.Option(
+                None, help='API title (defaults to table name)'),
+            version: Optional[str] = typer.Option('0.1.0'),
+            prefix: Optional[str] = typer.Option(
+                None, help='API URL endpoints path prefix'),
             description: str = typer.Option(
-                '', help='Provide API description'),
+                '', help='Provide API description as a string of a filename'),
             field_description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)'),
+            field_type: Optional[List[str]] = typer.Option(
+                None, help='Provide one or more field type(s), overriding '
+                'automatic type detection'),
+            paginate: int = typer.Option(10, help='Max. pagination limit'),
             rewrite_datafile: bool = typer.Option(
                 False, help='Rewrite normalized + id-enhanced data file'),
             authn: Optional[_cfgfile.AuthnEnum] = typer.Option(
-                None, help='Authentication mechanism'),
+                None, help='Authentication scheme (authn frontend)'),
+            authn_backend: Optional[_cfgfile.AuthnBackendEnum] = typer.Option(
+                None, help='Authenticator mechanism (authn backend)', 
+                callback=authn_backend_callback),
             ldap_bind_dn: Optional[str] = typer.Option(
-                None, help='LDAP bind dn'),
+                None, help='LDAP bind dn, use {uid} as login user name '
+                'placeholder (e.g. "uid={uid},ou=people,dc=...")'),
             ldap_server: Optional[str] = typer.Option(
                 None, help='LDAP server'),
             ):
@@ -80,29 +105,36 @@ def cli():
             typer.echo(f'Found existing {cfg_path.name}, skipping init.')
             raise typer.Exit(1)
         try:
-            if rewrite_datafile:
-                # backup table data file
-                timestamp = int(time.time())
-                datafile_bak = datafile.with_name(
-                    f'{datafile.name}.{timestamp}.bak')
-                shutil.copyfile(datafile, datafile_bak)
-
-            # TODOS: This is a hack, we're applying Path to a potential URL.
+            # TODO: datafile can be an URL - add proper support for this.
+            # TODO: This is a hack, we're applying Path to a potential URL.
             # While it works this is obviously less than ideal.
-            table = Path(datafile).stem.lower()
+            datafile_p = Path(datafile)
+            if rewrite_datafile:
+                # backup local table data file
+                if datafile_p.exists():
+                    timestamp = int(time.time())
+                    datafile_bak = datafile_p.with_name(
+                        f'{datafile_p.name}.{timestamp}.bak')
+                    shutil.copyfile(datafile, datafile_bak)
 
+            table = datafile_p.stem.lower()
+
+            title = f"{table} API" if title is None else title
             # write main app.yaml config file
             _cfgfile.write_app_config(
                 cfg_path,
                 app_config=_cfgfile.app_config(
                     table=table,
-                    title=table.title(),
+                    title=title,
+                    version=version,
+                    prefix=prefix,
                     description=description,
-                    version='0.1.0',
                     connect_string=connect_string,
                     expose_routes=expose,
                     query_params=query,
-                    authn_type=authn,
+                    paginate=paginate,
+                    authn=authn,
+                    authn_backend=authn_backend,
                     ldap_bind_dn=ldap_bind_dn,
                     ldap_server=ldap_server,
                     )
@@ -118,10 +150,20 @@ def cli():
             # TODO: Should this better be done with transform steps?
             # Is there a simple way to modify header names and avoid rewriting
             # the data?
+            # Create {field_name: type_name} lookup table.
+            name2type = _dict_from(field_type)
+
+            # Caution: The order of the modifiers positional args is crucial,
+            # currently. The reason seems to be that changes made directly on a
+            # field are not always properly reflected on the containing schema.
+            # Maybe a bug in frictionless?
+            # TODO: Investigate frictionless schema.fields consistency.
             datafile_resource = modify_resource_fields(
                 datafile_resource,
                 field_name_normalizer(),
-                field_type_mapper(any='string')
+                make_required(field_names=required),
+                field_type_mapper(
+                    type2type={'any': 'string'}, name2type=name2type),
                 )
 
             if field_description:
@@ -133,7 +175,10 @@ def cli():
             else:
                 create_exposed = False
 
-            add_examples(datafile_resource)
+            try: 
+                add_examples(datafile_resource)
+            except IndexError:
+                print(f'Warning: using 1st data row for examples failed')
 
             # Inject primary key into the resource schema. Depending on the
             # used id type this adds a single generated id field to the tabular
@@ -179,12 +224,21 @@ def cli():
             query: List[str] = typer.Option(
                 [], help='Provide one or more field(s) eligible as query'
                 ' parameter'),
+            title: Optional[str] = typer.Option(
+                None, help='API title (defaults to table name)'),
+            version: Optional[str] = typer.Option('0.1.0'),
+            prefix: Optional[str] = typer.Option(
+                None, help='API URL endpoints path prefix'),
             description: str = typer.Option(
-                '', help='Provide API description'),
+                '', help='Provide API description as a string of a filename'),
             field_description: Optional[List[str]] = typer.Option(
                 None, help='Provide one or more field description(s)'),
+            paginate: int = typer.Option(10, help='Max. pagination limit'),
             authn: Optional[_cfgfile.AuthnEnum] = typer.Option(
-                None, help='Authentication mechanism'),
+                None, help='Authentication scheme (authn frontend)'),
+            authn_backend: Optional[_cfgfile.AuthnBackendEnum] = typer.Option(
+                None, help='Authenticator mechanism (authn backend)', 
+                callback=authn_backend_callback),
             ldap_bind_dn: Optional[str] = typer.Option(
                 None, help='LDAP bind dn'),
             ldap_server: Optional[str] = typer.Option(
@@ -202,11 +256,13 @@ def cli():
                     table=table,
                     title=table.title(),
                     description=description,
-                    version='0.1.0',
+                    version=version,
                     connect_string=connect_string,
                     expose_routes=expose,
                     query_params=query,
-                    authn_type=authn,
+                    paginate=paginate,
+                    authn=authn,
+                    authn_backend=authn_backend,
                     ldap_bind_dn=ldap_bind_dn,
                     ldap_server=ldap_server,
                     )
@@ -226,7 +282,10 @@ def cli():
             if isinstance(primary_key, str):
                 primary_key = [primary_key,]
 
-            if len(primary_key) > 1:
+            if len(primary_key) == 0:
+                raise ValueError(
+                    f'DB table {table} has no primary key constraint')
+            elif len(primary_key) > 1:
                 raise ValueError(
                     f'Composite primary database key {primary_key} not '
                     f'supported')
