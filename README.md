@@ -1,4 +1,4 @@
-# datarest: Python low code data-driven REST-Tool
+# Datarest: Python low code data driven REST API tool
 
 Datarest exposes your tabular data as a simple REST API.
 
