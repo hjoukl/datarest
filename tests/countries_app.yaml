@@ -1,0 +1,16 @@
+datarest:
+  fastapi:
+    app:
+      title: TEST API
+      description: ''
+      version: 0.1.0
+  database:
+    connect_string: sqlite:///app.db
+  datatables:
+    countries:
+      schema_spec: https://specs.frictionlessdata.io/data-resource/
+      schema: countries.yaml
+      dbtable: countries
+      paginate: 10
+      expose_routes:
+      - get_one
