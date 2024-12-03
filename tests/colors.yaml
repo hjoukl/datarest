@@ -1,0 +1,24 @@
+name: colors
+profile: tabular-data-resource
+scheme: ''
+format: inline
+schema:
+  fields:
+    - name: id_
+      description: Unique resource id
+      type: string
+    - type: integer
+      name: 'no'
+      example: 1
+    - type: string
+      name: color
+      example: red
+    - type: string
+      name: description
+      example: The color of blood
+  primaryKey:
+    - id_
+  x_datarest_primary_key_info:
+    id_type: uuid4_base64
+    id_src_fields:
+      - 'no'
